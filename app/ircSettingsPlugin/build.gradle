@@ -2,12 +2,15 @@ apply plugin: 'java-gradle-plugin'
 apply plugin: 'groovy'
 
 group = 'io.mrarm.irc'
-version = '1.0'
+version = '1.1'
 
 repositories {
-    mavenCentral()
     google()
-    jcenter()
+    mavenCentral()
+    mavenLocal()
+    maven { url "https://maven.aliyun.com/repository/jcenter" }
+    maven { url "https://jitpack.io" }
+    gradlePluginPortal()
 }
 
 gradlePlugin {

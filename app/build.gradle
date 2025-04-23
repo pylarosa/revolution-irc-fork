@@ -2,11 +2,11 @@ apply plugin: 'com.android.application'
 apply plugin: 'io.mrarm.irc.build.settings-builder'
 
 android {
-    compileSdkVersion 33
+    compileSdk 35
     defaultConfig {
         applicationId "io.mrarm.irc"
-        minSdkVersion 17
-        targetSdkVersion 30
+        minSdkVersion 21
+        targetSdkVersion 35
         versionCode 13
         versionName "0.5.5"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -29,6 +29,7 @@ android {
         }
     }
     namespace 'io.mrarm.irc'
+    buildToolsVersion '35.0.1'
 }
 
 dependencies {
@@ -36,16 +37,16 @@ dependencies {
     androidTestImplementation('androidx.test.espresso:espresso-core:3.4.0-alpha02', {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
-    implementation 'androidx.vectordrawable:vectordrawable:1.1.0'
-    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.vectordrawable:vectordrawable:1.2.0'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'androidx.cardview:cardview:1.0.0'
     implementation 'androidx.documentfile:documentfile:1.0.1'
-    implementation 'com.google.android.material:material:1.8.0'
+    implementation 'com.google.android.material:material:1.12.0'
     implementation 'com.google.android:flexbox:2.0.1'
     implementation 'com.github.mcmrarm:chatlib:0.3.3'
     implementation 'com.github.mcmrarm:chatlib-android-core:0.1.0'
     implementation 'com.github.mcmrarm:chatlib-android-storage:0.3.1'
-    implementation 'com.google.code.gson:gson:2.8.6'
+    implementation 'com.google.code.gson:gson:2.10.1'
     implementation 'net.lingala.zip4j:zip4j:1.3.3'
     implementation 'com.madgag.spongycastle:core:1.58.0.0'
     implementation 'com.madgag.spongycastle:prov:1.58.0.0'
