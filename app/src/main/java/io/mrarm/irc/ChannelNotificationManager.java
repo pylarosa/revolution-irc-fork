@@ -5,17 +5,20 @@ import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import androidx.core.app.NotificationCompat;
-import androidx.core.app.NotificationManagerCompat;
-import androidx.core.app.RemoteInput;
 import android.text.SpannableString;
 import android.text.style.ForegroundColorSpan;
 import android.view.View;
 import android.widget.RemoteViews;
+
+import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.core.app.RemoteInput;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -157,7 +160,7 @@ public class ChannelNotificationManager implements NotificationCountStorage.OnCh
     void showNotification(Context context, NotificationRule rule) {
         NotificationMessage lastMessage;
         synchronized (this) {
-            if (mMessages.size() == 0)
+            if (mMessages.isEmpty())
                 return;
             lastMessage = mMessages.get(mMessages.size() - 1);
         }
@@ -173,11 +176,11 @@ public class ChannelNotificationManager implements NotificationCountStorage.OnCh
         PendingIntent intent = PendingIntent.getActivity(context, mNotificationId,
                 MainActivity.getLaunchIntent(context, mConnection, mChannel,
                         lastMessage.mMessageId.toString()),
-                PendingIntent.FLAG_CANCEL_CURRENT);
+                PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         PendingIntent dismissIntent = PendingIntent.getBroadcast(context,
                 CHAT_DISMISS_INTENT_ID_START + mNotificationId,
                 NotificationActionReceiver.getDismissIntent(context, mConnection, mChannel),
-                PendingIntent.FLAG_CANCEL_CURRENT);
+                PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         PendingIntent replyIntent = PendingIntent.getBroadcast(context,
                 CHAT_REPLY_INTENT_ID_START + mNotificationId,
                 NotificationActionReceiver.getReplyIntent(context, mConnection, mChannel,
@@ -233,6 +236,16 @@ public class ChannelNotificationManager implements NotificationCountStorage.OnCh
         }
         notification.setDefaults(defaults);
         synchronized (this) {
+            if (ActivityCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                // TODO: Consider calling
+                //    ActivityCompat#requestPermissions
+                // here to request the missing permissions, and then overriding
+                //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                //                                          int[] grantResults)
+                // to handle the case where the user grants the permission. See the documentation
+                // for ActivityCompat#requestPermissions for more details.
+                return;
+            }
             NotificationManagerCompat.from(context).notify(mNotificationId, notification.build());
             mShowingNotification = true;
         }

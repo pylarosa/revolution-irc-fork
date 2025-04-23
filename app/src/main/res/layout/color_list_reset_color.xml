@@ -11,7 +11,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         app:srcCompat="@drawable/ic_delete"
-        android:tint="@android:color/white"
+        app:tint="@android:color/white"
         android:contentDescription="@string/action_reset" />
 
 </FrameLayout>

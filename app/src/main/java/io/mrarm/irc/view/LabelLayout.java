@@ -6,7 +6,6 @@ import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Typeface;
-import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 import android.text.Editable;
 import android.text.TextPaint;
 import android.text.TextWatcher;
@@ -19,6 +18,8 @@ import android.view.animation.LinearInterpolator;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+
+import androidx.interpolator.view.animation.FastOutSlowInInterpolator;
 
 import io.mrarm.irc.R;
 import io.mrarm.irc.util.SimpleTextWatcher;

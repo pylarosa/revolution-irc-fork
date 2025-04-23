@@ -17,7 +17,8 @@
             android:layout_alignParentRight="true"
             android:layout_marginEnd="@dimen/activity_horizontal_margin_s4"
             android:layout_marginRight="@dimen/activity_horizontal_margin_s4"
-            android:hint="@string/edit_command_alias_type">
+            android:hint="@string/edit_command_alias_type"
+            android:fitsSystemWindows="true">
 
             <io.mrarm.irc.view.AutoResizeSpinner
                 android:id="@+id/type"
