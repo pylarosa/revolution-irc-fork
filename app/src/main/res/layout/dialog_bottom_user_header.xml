@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="@dimen/dialog_bottom_user_header_height"
-    app:theme="@style/Theme.AppCompat"
+    android:theme="@style/Theme.AppCompat"
     android:background="@color/colorPrimary">
 
     <TextView
