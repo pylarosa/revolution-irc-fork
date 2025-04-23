@@ -15,6 +15,7 @@ public class SettingsBuilderPlugin implements Plugin<Project> {
         genTask.doFirst {
             SettingsBuilder.generateJavaFiles(project.file("settings.yml"), genDir)
         }
+
         android.applicationVariants.all { v ->
             v.registerJavaGeneratingTask(genTask, genDir)
         }

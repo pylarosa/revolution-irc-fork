@@ -2,13 +2,15 @@ package io.mrarm.irc;
 
 import android.content.Intent;
 import android.os.Bundle;
-import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentTransaction;
 import android.view.MenuItem;
 import android.view.View;
 
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentTransaction;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import io.mrarm.irc.setting.SettingsCategoriesFragment;
 import io.mrarm.irc.setting.fragment.CommandSettingsFragment;
@@ -29,11 +31,10 @@ public class SettingsActivity extends ThemedActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_settings);
-        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        Objects.requireNonNull(getSupportActionBar()).setDisplayHomeAsUpEnabled(true);
 
-        getSupportFragmentManager().addOnBackStackChangedListener(() -> {
-            updateTitle();
-        });
+        getSupportFragmentManager().addOnBackStackChangedListener(this::updateTitle);
+
         if (getSupportFragmentManager().findFragmentById(R.id.content_frame) == null) {
             getSupportFragmentManager().beginTransaction()
                     .replace(R.id.content_frame, CategoriesFragment.newInstance())
@@ -98,11 +99,5 @@ public class SettingsActivity extends ThemedActivity {
             }));
             return ret;
         }
-
     }
-
-
-
-
-
 }

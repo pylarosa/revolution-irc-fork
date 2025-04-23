@@ -2,11 +2,15 @@ apply plugin: 'java-gradle-plugin'
 apply plugin: 'groovy'
 
 group = 'io.mrarm.irc'
-version = '1.0'
+version = '1.1'
 
 repositories {
-    mavenCentral()
     google()
+    mavenCentral()
+    mavenLocal()
+    maven { url "https://maven.aliyun.com/repository/jcenter" }
+    maven { url "https://jitpack.io" }
+    gradlePluginPortal()
 }
 
 gradlePlugin {
@@ -19,7 +23,7 @@ gradlePlugin {
 }
 
 dependencies {
-    implementation 'com.android.tools.build:gradle:3.3.1'
+    implementation 'com.android.tools.build:gradle:4.0.2'
     implementation 'org.yaml:snakeyaml:1.23'
     implementation 'com.squareup:javawriter:2.5.1'
 }

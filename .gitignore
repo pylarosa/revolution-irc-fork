@@ -1,12 +1,24 @@
+# Gradle
+.gradle/
+build/
+captures/
+.externalNativeBuild/
+*.log
+
+# Local configuration
+local.properties
+
+# IDE files
+.idea/
 *.iml
-.gradle
-/local.properties
-/crowdin.properties
-/.idea/workspace.xml
-/.idea/libraries
-/.idea/caches
-/.idea/assetWizardSettings.xml
+*.ipr
+*.iws
+
+# macOS / Linux
 .DS_Store
-/build
-/captures
-.externalNativeBuild
+*.swp
+*~
+
+# Windows
+Thumbs.db
+desktop.ini
