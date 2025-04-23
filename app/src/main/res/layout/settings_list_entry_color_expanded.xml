@@ -142,7 +142,7 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 app:srcCompat="@drawable/ic_palette"
-                android:tint="@android:color/white"
+                app:tint="@android:color/white"
                 android:contentDescription="@string/color_picker_palette" />
 
         </FrameLayout>

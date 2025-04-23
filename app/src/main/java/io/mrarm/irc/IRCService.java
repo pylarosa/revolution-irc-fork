@@ -10,11 +10,10 @@ import android.content.IntentFilter;
 import android.net.ConnectivityManager;
 import android.os.Build;
 import android.os.IBinder;
+import android.util.Log;
+
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
-
-import android.os.Message;
-import android.util.Log;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -134,13 +133,13 @@ public class IRCService extends Service implements ServerConnectionManager.Conne
             Intent mainIntent = MainActivity.getLaunchIntent(this, null, null);
             PendingIntent exitIntent = PendingIntent.getBroadcast(this, EXIT_ACTION_ID,
                     ExitActionReceiver.getIntent(this),
-                    PendingIntent.FLAG_CANCEL_CURRENT);
+                    PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
             NotificationCompat.Builder notification = new NotificationCompat.Builder(this, IDLE_NOTIFICATION_CHANNEL)
                     .setContentTitle(getString(R.string.service_title))
                     .setContentText(b.toString())
                     .setPriority(NotificationCompat.PRIORITY_MIN)
                     .setOnlyAlertOnce(true)
-                    .setContentIntent(PendingIntent.getActivity(this, IDLE_NOTIFICATION_ID, mainIntent, PendingIntent.FLAG_CANCEL_CURRENT))
+                    .setContentIntent(PendingIntent.getActivity(this, IDLE_NOTIFICATION_ID, mainIntent, PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE))
                     .addAction(Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP ? R.drawable.ic_close : R.drawable.ic_notification_close, getString(R.string.action_exit), exitIntent);
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
                 notification.setSmallIcon(R.drawable.ic_server_connected);

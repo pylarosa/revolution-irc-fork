@@ -3,14 +3,15 @@ package io.mrarm.irc.view;
 import android.content.Context;
 import android.graphics.Color;
 import android.os.Parcelable;
-import androidx.core.view.GravityCompat;
-import androidx.drawerlayout.widget.DrawerLayout;
-import androidx.appcompat.graphics.drawable.DrawerArrowDrawable;
-import androidx.appcompat.widget.Toolbar;
 import android.util.AttributeSet;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+
+import androidx.appcompat.graphics.drawable.DrawerArrowDrawable;
+import androidx.appcompat.widget.Toolbar;
+import androidx.core.view.GravityCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -67,15 +68,15 @@ public class LockableDrawerLayout extends DrawerLayout {
 
     private void updateLockState() {
         if (isCurrentlyLocked()) {
-            if (getDrawerLockMode(Gravity.START) == DrawerLayout.LOCK_MODE_LOCKED_OPEN)
+            if (getDrawerLockMode(GravityCompat.START) == DrawerLayout.LOCK_MODE_LOCKED_OPEN)
                 return;
-            openDrawer(Gravity.START, false);
+            openDrawer(GravityCompat.START, false);
             setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_OPEN, GravityCompat.START);
             setScrimColor(Color.TRANSPARENT);
         } else {
-            if (getDrawerLockMode(Gravity.START) == DrawerLayout.LOCK_MODE_UNLOCKED)
+            if (getDrawerLockMode(GravityCompat.START) == DrawerLayout.LOCK_MODE_UNLOCKED)
                 return;
-            closeDrawer(Gravity.START, false);
+            closeDrawer(GravityCompat.START, false);
             setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED, GravityCompat.START);
             setScrimColor(0x99000000);
         }
@@ -171,13 +172,13 @@ public class LockableDrawerLayout extends DrawerLayout {
             mCloseTextId = closeTextId;
             drawerLayout.addDrawerListener(this);
             toolbar.setNavigationIcon(mDrawable);
-            toolbar.setNavigationContentDescription(drawerLayout.isDrawerOpen(Gravity.START)
+            toolbar.setNavigationContentDescription(drawerLayout.isDrawerOpen(GravityCompat.START)
                     ? closeTextId : openTextId);
             toolbar.setNavigationOnClickListener((View view) -> {
-                if (drawerLayout.isDrawerOpen(Gravity.START))
-                    drawerLayout.closeDrawer(Gravity.START, !drawerLayout.isCurrentlyLocked());
+                if (drawerLayout.isDrawerOpen(GravityCompat.START))
+                    drawerLayout.closeDrawer(GravityCompat.START, !drawerLayout.isCurrentlyLocked());
                 else
-                    drawerLayout.openDrawer(Gravity.START, !drawerLayout.isCurrentlyLocked());
+                    drawerLayout.openDrawer(GravityCompat.START, !drawerLayout.isCurrentlyLocked());
                 drawerLayout.requestLayout();
             });
             mOpenTextId = openTextId;

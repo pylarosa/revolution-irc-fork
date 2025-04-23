@@ -5,7 +5,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context="io.mrarm.irc.MessageFormatSettingsActivity"
-    tools:showIn="@layout/activity_message_format_settings">
+    tools:showIn="@layout/activity_message_format_settings"
+    android:fitsSystemWindows="true">
 
     <io.mrarm.irc.view.MessageFormatSettingsFormatBar
         android:id="@+id/format_bar"

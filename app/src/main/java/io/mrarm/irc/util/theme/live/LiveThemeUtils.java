@@ -1,9 +1,9 @@
 package io.mrarm.irc.util.theme.live;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
-import android.graphics.drawable.Drawable;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.ContextThemeWrapper;
@@ -11,8 +11,6 @@ import android.view.ContextThemeWrapper;
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 import io.mrarm.irc.R;
@@ -45,6 +43,7 @@ public class LiveThemeUtils {
         }
     }
 
+    @SuppressLint("ResourceType")
     private static ThemedColorStateList getAppCompatDrawableTintList(Resources r, int d,
                                                                      Resources.Theme t)
             throws IOException, XmlPullParserException {

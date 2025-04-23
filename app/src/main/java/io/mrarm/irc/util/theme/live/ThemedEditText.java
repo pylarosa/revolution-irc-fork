@@ -1,18 +1,20 @@
 package io.mrarm.irc.util.theme.live;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
-import androidx.core.content.ContextCompat;
-import androidx.core.graphics.ColorUtils;
-import androidx.core.view.ViewCompat;
-import androidx.appcompat.widget.AppCompatEditText;
 import android.util.AttributeSet;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
+
+import androidx.appcompat.widget.AppCompatEditText;
+import androidx.core.content.ContextCompat;
+import androidx.core.graphics.ColorUtils;
+import androidx.core.view.ViewCompat;
 
 import java.lang.reflect.Field;
 
@@ -100,6 +102,7 @@ public class ThemedEditText extends AppCompatEditText {
 
     // https://stackoverflow.com/questions/11554078/set-textcursordrawable-programmatically/#26544231
     // https://stackoverflow.com/questions/40889455/how-to-change-color-of-the-bubbleunder-cursor-on-editview-programatically/#44333069
+    @SuppressLint("SoonBlockedPrivateApi")
     public static void setCursorDrawableColor(EditText editText, int color) {
         Object editor;
         try {

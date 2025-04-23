@@ -7,9 +7,6 @@ import android.text.Editable;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
-import android.widget.LinearLayout;
-
-import java.util.List;
 
 import androidx.core.graphics.ColorUtils;
 import androidx.core.view.ViewCompat;
@@ -17,6 +14,9 @@ import androidx.core.widget.ImageViewCompat;
 import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import java.util.List;
+
 import io.mrarm.irc.R;
 import io.mrarm.irc.dialog.MaterialColorPickerDialog;
 import io.mrarm.irc.setting.MaterialColorSetting;
@@ -144,7 +144,7 @@ public class ExpandableColorSetting extends MaterialColorSetting {
             itemView.findViewById(R.id.header).setOnClickListener(this);
             mSavedColors = itemView.findViewById(R.id.recent_colors);
             mSavedColors.setLayoutManager(new LinearLayoutManager(
-                    itemView.getContext(), LinearLayout.HORIZONTAL, false));
+                    itemView.getContext(), RecyclerView.HORIZONTAL, false));
             mSavedColors.addItemDecoration(SpacingItemDecorator.fromResDimension(
                     itemView.getContext(), R.dimen.color_list_spacing));
             mPaletteBtn = itemView.findViewById(R.id.palette_btn);
