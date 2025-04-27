@@ -1,2 +1,3 @@
 includeBuild 'app/ircSettingsPlugin'
 include ':app'
+include ':dataadapter'

@@ -1,0 +1,42 @@
+apply plugin: 'com.android.library'
+
+group = 'com.github.mcmrarm'
+version = 'master-SNAPSHOT'
+
+android {
+    compileSdkVersion 35
+
+    defaultConfig {
+        minSdkVersion 17
+        targetSdkVersion 35
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+    namespace 'com.github.mcmrarm.dataadapter'
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility = '1.8'
+        targetCompatibility = '1.8'
+    }
+
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.databinding:databinding-common:8.9.2'
+    implementation 'androidx.databinding:databinding-runtime:8.9.2'
+    implementation 'com.github.mcmrarm:observabletransform:master-SNAPSHOT'
+    implementation 'androidx.recyclerview:recyclerview:1.4.0'
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
+}
