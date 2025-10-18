@@ -136,11 +136,13 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
 
         private SimpleBarChart mChart;
         private TextView mTotal;
+        private View mViewRecentLogsButton;
 
         public ServerLogsSummaryHolder(View view) {
             super(view);
             mChart = view.findViewById(R.id.chart);
             mTotal = view.findViewById(R.id.total_value);
+            mViewRecentLogsButton = view.findViewById(R.id.view_recent_logs);
             view.findViewById(R.id.set_limits).setOnClickListener((View v) -> {
                 StorageLimitsDialog dialog = new StorageLimitsDialog(v.getContext());
                 dialog.setOnDismissListener((DialogInterface di) -> {
@@ -150,6 +152,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                 });
                 dialog.show();
             });
+            mViewRecentLogsButton.setOnClickListener((View v) -> showRecentLogsMenu(v.getContext()));
             view.findViewById(R.id.clear_chat_logs).setOnClickListener((View v) -> {
                 new AlertDialog.Builder(v.getContext())
                         .setTitle(R.string.pref_storage_clear_all_chat_logs)
@@ -188,6 +191,44 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                 itemView.setPadding(itemView.getPaddingLeft(), itemView.getPaddingTop(), itemView.getPaddingRight(), itemView.getResources().getDimensionPixelSize(R.dimen.storage_chat_logs_summary_padding_bottom_no_items));
             }
             mTotal.setText(formatFileSize(total));
+            boolean hasAccessibleEntries = false;
+            for (ServerLogsEntry entry : mServerLogEntries) {
+                if (entry.uuid != null) {
+                    hasAccessibleEntries = true;
+                    break;
+                }
+            }
+            mViewRecentLogsButton.setEnabled(hasAccessibleEntries);
+        }
+
+        private void showRecentLogsMenu(Context context) {
+            List<ServerLogsEntry> accessibleEntries = new ArrayList<>();
+            for (ServerLogsEntry entry : mServerLogEntries) {
+                if (entry.uuid != null)
+                    accessibleEntries.add(entry);
+            }
+            if (accessibleEntries.isEmpty()) {
+                new AlertDialog.Builder(context)
+                        .setTitle(R.string.pref_storage_recent_logs_title)
+                        .setMessage(R.string.pref_storage_recent_logs_empty)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show();
+                return;
+            }
+            if (accessibleEntries.size() == 1) {
+                UUID serverId = accessibleEntries.get(0).uuid;
+                new FetchRecentLogsTask(context, serverId).execute();
+                return;
+            }
+            MenuBottomSheetDialog menu = new MenuBottomSheetDialog(context);
+            for (ServerLogsEntry entry : accessibleEntries) {
+                UUID serverId = entry.uuid;
+                menu.addItem(entry.name, R.drawable.ic_history, (MenuBottomSheetDialog.Item it) -> {
+                    new FetchRecentLogsTask(context, serverId).execute();
+                    return true;
+                });
+            }
+            menu.show();
         }
 
     }

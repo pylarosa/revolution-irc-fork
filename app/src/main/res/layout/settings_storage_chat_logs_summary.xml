@@ -84,6 +84,15 @@
             android:paddingRight="24dp" />
 
         <Button
+            android:id="@+id/view_recent_logs"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            style="@style/AppTheme.Widget.Button.Colored"
+            android:text="@string/pref_storage_view_recent_logs"
+            android:paddingLeft="16dp"
+            android:paddingRight="16dp" />
+
+        <Button
             android:id="@+id/clear_chat_logs"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
