@@ -9,7 +9,7 @@ buildscript {
         gradlePluginPortal()
     }
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.9.2'
+        classpath 'com.android.tools.build:gradle:8.13.0'
         classpath 'io.mrarm.irc:build:1.0'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22"
 

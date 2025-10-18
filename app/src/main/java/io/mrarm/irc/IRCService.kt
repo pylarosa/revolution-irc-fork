@@ -60,6 +60,7 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        super.onStartCommand(intent, flags, startId)
         val action = intent?.action ?: return START_STICKY
         if (action == ACTION_START_FOREGROUND) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !createdChannel) {
@@ -147,7 +148,10 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
         }
     }
 
-    override fun onBind(intent: Intent): IBinder? = null
+    override fun onBind(intent: Intent): IBinder? {
+        super.onBind(intent)
+        return null
+    }
 
     private fun registerNetworkCallback() {
         connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager?
