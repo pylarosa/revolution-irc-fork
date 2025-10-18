@@ -607,6 +607,9 @@
     <string name="pref_storage_change_server_limit">Change server limit</string>
     <string name="pref_storage_remove_server_limit">Reset custom server limit</string>
     <string name="pref_storage_limit_server_title">Server chat storage limit</string>
+    <string name="pref_storage_view_recent_logs">View recent chat logs</string>
+    <string name="pref_storage_recent_logs_title">Recent messages</string>
+    <string name="pref_storage_recent_logs_empty">No chat log entries available.</string>
 
     <!-- Backup settings -->
 

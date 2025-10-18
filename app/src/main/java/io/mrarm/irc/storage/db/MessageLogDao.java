@@ -23,6 +23,9 @@ public interface MessageLogDao {
         return query((SupportSQLiteQuery) query);
     }
 
+    @Query("SELECT * FROM messages ORDER BY date DESC LIMIT :limit")
+    List<MessageLogEntity> getLatestMessages(int limit);
+
     @Query("DELETE FROM messages")
     void clear();
 }
