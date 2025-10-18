@@ -28,6 +28,7 @@ import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
 import io.mrarm.irc.util.DelayScheduler;
 import io.mrarm.irc.storage.StorageRepository;
+import io.mrarm.irc.util.DelayScheduler;
 import io.mrarm.irc.util.IgnoreListMessageFilter;
 import io.mrarm.irc.util.StubMessageStorageApi;
 import io.mrarm.irc.util.UserAutoRunCommandHelper;
