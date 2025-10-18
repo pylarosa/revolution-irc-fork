@@ -1,5 +1,6 @@
 package io.mrarm.irc.storage.db;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
@@ -10,7 +11,7 @@ public class ChannelDataEntity {
 
     @PrimaryKey
     @ColumnInfo(name = "channel")
-    @Nullable
+    @NonNull
     public String channel;
 
     @ColumnInfo(name = "topic")
