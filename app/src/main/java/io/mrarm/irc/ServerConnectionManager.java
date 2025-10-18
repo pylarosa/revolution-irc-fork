@@ -37,9 +37,11 @@ import io.mrarm.irc.util.SchedulerProvider;
 import io.mrarm.irc.util.SchedulerProviderHolder;
 import kotlin.Unit;
 import kotlin.coroutines.Continuation;
+import kotlin.coroutines.CoroutineContext;
 import kotlin.jvm.functions.Function2;
 import kotlinx.coroutines.BuildersKt;
 import kotlinx.coroutines.CoroutineScope;
+import kotlinx.coroutines.CoroutineStart;
 
 public class ServerConnectionManager {
 
@@ -134,13 +136,13 @@ public class ServerConnectionManager {
     }
 
     void saveAutoconnectListAsync() {
-        BuildersKt.launch$default(mIoScope, null, null, new Function2<CoroutineScope, Continuation<? super Unit>, Object>() {
+        BuildersKt.launch(mIoScope, (CoroutineContext) null, CoroutineStart.DEFAULT, new Function2<CoroutineScope, Continuation<? super Unit>, Object>() {
             @Override
             public Object invoke(CoroutineScope coroutineScope, Continuation<? super Unit> continuation) {
                 saveAutoconnectList();
                 return Unit.INSTANCE;
             }
-        }, 3, null);
+        });
     }
 
     public Context getContext() {
