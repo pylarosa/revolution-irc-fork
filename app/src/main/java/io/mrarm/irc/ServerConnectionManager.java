@@ -2,7 +2,10 @@ package io.mrarm.irc;
 
 import android.content.Context;
 import android.net.ConnectivityManager;
-import android.os.AsyncTask;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkInfo;
+import android.os.Build;
 import android.widget.Toast;
 
 import java.io.BufferedReader;
@@ -28,6 +31,15 @@ import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
 import io.mrarm.irc.config.SettingsHelper;
 import io.mrarm.irc.setting.ReconnectIntervalSetting;
+import io.mrarm.irc.util.DelayScheduler;
+import io.mrarm.irc.util.ManagedCoroutineScope;
+import io.mrarm.irc.util.SchedulerProvider;
+import io.mrarm.irc.util.SchedulerProviderHolder;
+import kotlin.Unit;
+import kotlin.coroutines.Continuation;
+import kotlin.jvm.functions.Function2;
+import kotlinx.coroutines.BuildersKt;
+import kotlinx.coroutines.CoroutineScope;
 
 public class ServerConnectionManager {
 
@@ -44,6 +56,9 @@ public class ServerConnectionManager {
     private final List<ServerConnectionInfo.ChannelListChangeListener> mChannelsListeners = new ArrayList<>();
     private final List<ServerConnectionInfo.InfoChangeListener> mInfoListeners = new ArrayList<>();
     private boolean mDestroying = false;
+    private final ManagedCoroutineScope mIoScopeWrapper;
+    private final CoroutineScope mIoScope;
+    private final DelayScheduler mReconnectScheduler;
 
     public static boolean hasInstance() {
         return instance != null;
@@ -65,11 +80,20 @@ public class ServerConnectionManager {
             instance.removeConnection(connection, false);
             instance.killDisconnectingConnection(connection.getUUID());
         }
+        instance.mIoScopeWrapper.cancel();
         instance = null;
     }
 
     public ServerConnectionManager(Context context) {
+        this(context, null);
+    }
+
+    public ServerConnectionManager(Context context, SchedulerProvider schedulerProvider) {
         mContext = context;
+        SchedulerProvider resolvedProvider = schedulerProvider != null ? schedulerProvider : SchedulerProviderHolder.get();
+        mIoScopeWrapper = new ManagedCoroutineScope(resolvedProvider.getIoDispatcher());
+        mIoScope = mIoScopeWrapper.getScope();
+        mReconnectScheduler = resolvedProvider.getReconnectionScheduler();
 
         mConnectedServersFile = new File(context.getFilesDir(), CONNECTED_SERVERS_FILE_PATH);
         ConnectedServersList servers = null;
@@ -110,14 +134,13 @@ public class ServerConnectionManager {
     }
 
     void saveAutoconnectListAsync() {
-        AsyncTask<Void, Void, Void> task = new AsyncTask<Void, Void, Void>() {
+        BuildersKt.launch$default(mIoScope, null, null, new Function2<CoroutineScope, Continuation<? super Unit>, Object>() {
             @Override
-            protected Void doInBackground(Void... voids) {
+            public Object invoke(CoroutineScope coroutineScope, Continuation<? super Unit> continuation) {
                 saveAutoconnectList();
-                return null;
+                return Unit.INSTANCE;
             }
-        };
-        task.execute();
+        }, 3, null);
     }
 
     public Context getContext() {
@@ -208,7 +231,7 @@ public class ServerConnectionManager {
                 throw new RuntimeException(e);
             }
         }
-        ServerConnectionInfo connectionInfo = new ServerConnectionInfo(this, data, request, saslOptions, joinChannels);
+        ServerConnectionInfo connectionInfo = new ServerConnectionInfo(this, data, request, saslOptions, joinChannels, mReconnectScheduler);
         connectionInfo.connect();
         addConnection(connectionInfo, saveAutoconnect);
         return connectionInfo;
@@ -393,7 +416,19 @@ public class ServerConnectionManager {
     public static boolean isWifiConnected(Context context) {
         ConnectivityManager mgr = (ConnectivityManager) context.getSystemService(
                 Context.CONNECTIVITY_SERVICE);
-        return mgr.getNetworkInfo(ConnectivityManager.TYPE_WIFI).isConnected();
+        if (mgr == null)
+            return false;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Network network = mgr.getActiveNetwork();
+            if (network == null)
+                return false;
+            NetworkCapabilities capabilities = mgr.getNetworkCapabilities(network);
+            return capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);
+        } else {
+            @SuppressWarnings("deprecation")
+            NetworkInfo info = mgr.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
+            return info != null && info.isConnected();
+        }
     }
 
     public interface ConnectionsListener {
