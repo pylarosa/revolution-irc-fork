@@ -23,6 +23,13 @@ import io.mrarm.irc.job.ServerPingScheduler
 import io.mrarm.irc.util.WarningHelper
 import kotlinx.coroutines.launch
 
+/**
+ * IRCService
+ *
+ * Core background service responsible for maintaining and monitoring IRC connections,
+ * receiving messages, and posting notifications. Runs as a foreground service to ensure
+ * persistence even when the app is not in the foreground.
+ */
 class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListener {
 
     private var createdChannel = false
@@ -30,6 +37,7 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
     private var connectivityManager: ConnectivityManager? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
+    /** Called when the service is first created. Initializes managers and listeners. */
     override fun onCreate() {
         super.onCreate()
 
@@ -45,6 +53,7 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
         ServerPingScheduler.getInstance(this).startIfEnabled()
     }
 
+    /** Cleans up connections, listeners, and schedulers when the service is destroyed. */
     override fun onDestroy() {
         super.onDestroy()
 
@@ -59,6 +68,10 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
         ServerPingScheduler.getInstance(this).stop()
     }
 
+    /**
+     * Handles start commands, including initializing the foreground notification.
+     * Keeps track of connected/connecting/disconnected servers to display in the status.
+     */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
         val action = intent?.action ?: return START_STICKY
@@ -68,28 +81,26 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
                 createdChannel = true
             }
 
-            val builder = StringBuilder()
-            var connectedCount = 0
-            var connectingCount = 0
-            var disconnectedCount = 0
+            // Compose notification text summarizing connection states
             val manager = ServerConnectionManager.getInstance(this)
-            manager.connections.forEach { connectionInfo ->
-                when {
-                    connectionInfo.isConnected -> connectedCount++
-                    connectionInfo.isConnecting -> connectingCount++
-                    else -> disconnectedCount++
+            val (connectedCount, connectingCount, disconnectedCount) =
+                manager.connections.fold(Triple(0, 0, 0)) { acc, conn ->
+                    when {
+                        conn.isConnected -> acc.copy(first = acc.first + 1)
+                        conn.isConnecting -> acc.copy(second = acc.second + 1)
+                        else -> acc.copy(third = acc.third + 1)
+                    }
                 }
-            }
-            builder.append(resources.getQuantityString(R.plurals.service_status_connected, connectedCount, connectedCount))
-            if (connectingCount > 0) {
-                builder.append(getString(R.string.text_comma))
-                builder.append(resources.getQuantityString(R.plurals.service_status_connecting, connectingCount, connectingCount))
-            }
-            if (disconnectedCount > 0) {
-                builder.append(getString(R.string.text_comma))
-                builder.append(resources.getQuantityString(R.plurals.service_status_disconnected, disconnectedCount, disconnectedCount))
+
+            val builder = StringBuilder().apply {
+                append(resources.getQuantityString(R.plurals.service_status_connected, connectedCount, connectedCount))
+                if (connectingCount > 0) append(getString(R.string.text_comma))
+                    .append(resources.getQuantityString(R.plurals.service_status_connecting, connectingCount, connectingCount))
+                if (disconnectedCount > 0) append(getString(R.string.text_comma))
+                    .append(resources.getQuantityString(R.plurals.service_status_disconnected, disconnectedCount, disconnectedCount))
             }
 
+            // Build persistent foreground notification
             val mainIntent = MainActivity.getLaunchIntent(this, null, null)
             val exitIntent = PendingIntent.getBroadcast(
                 this,
@@ -97,6 +108,7 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
                 ExitActionReceiver.getIntent(this),
                 PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
+
             val notification = NotificationCompat.Builder(this, IDLE_NOTIFICATION_CHANNEL)
                 .setContentTitle(getString(R.string.service_title))
                 .setContentText(builder.toString())
@@ -111,28 +123,24 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
                     )
                 )
                 .addAction(
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
-                        R.drawable.ic_close
-                    else
-                        R.drawable.ic_notification_close,
+                    R.drawable.ic_close,
                     getString(R.string.action_exit),
                     exitIntent
                 )
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP)
-                notification.setSmallIcon(R.drawable.ic_server_connected)
-            else
-                notification.setSmallIcon(R.drawable.ic_notification_connected)
+            notification.setSmallIcon(R.drawable.ic_server_connected)
 
             startForeground(IDLE_NOTIFICATION_ID, notification.build())
         }
         return START_STICKY
     }
 
+    /** Called when a message is received on any subscribed connection. */
     private fun onMessage(connection: ServerConnectionInfo, channel: String?, info: MessageInfo, messageId: MessageId) {
         NotificationManager.getInstance().processMessage(this, connection, channel, info, messageId)
         ChatLogStorageManager.getInstance(this).onMessage(connection)
     }
 
+    /** Triggered when a new IRC connection is established in the manager. */
     override fun onConnectionAdded(connection: ServerConnectionInfo) {
         val listener = MessageListener { channel, info, id ->
             onMessage(connection, channel, info, id)
@@ -141,6 +149,7 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
         connection.apiInstance?.messageStorageApi?.subscribeChannelMessages(null, listener, null, null)
     }
 
+    /** Triggered when a connection is removed; unsubscribes message listeners. */
     override fun onConnectionRemoved(connection: ServerConnectionInfo) {
         val listener = messageListeners.remove(connection)
         if (listener != null) {
@@ -153,8 +162,9 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
         return null
     }
 
+    /** Registers a system callback to monitor network connectivity changes. */
     private fun registerNetworkCallback() {
-        connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager?
+        connectivityManager = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager?
         val manager = connectivityManager ?: return
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
@@ -181,6 +191,7 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
         }
     }
 
+    /** Unregisters the previously installed network callback. */
     private fun unregisterNetworkCallback() {
         val manager = connectivityManager ?: return
         val callback = networkCallback ?: return
@@ -191,6 +202,7 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
         networkCallback = null
     }
 
+    /** Called when network status changes; notifies managers to update connectivity. */
     private fun handleNetworkUpdate() {
         lifecycleScope.launch {
             val manager = ServerConnectionManager.getInstance(this@IRCService)
@@ -200,6 +212,7 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
         }
     }
 
+    /** Returns true if the device currently has an active Internet connection. */
     private fun hasAnyNetworkConnection(): Boolean {
         val manager = connectivityManager ?: return false
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -214,21 +227,32 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
         }
     }
 
+    /** BootReceiver automatically starts the service after device reboot. */
     class BootReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            Log.i(TAG, "Device booted")
-            start(context)
+            if (Intent.ACTION_BOOT_COMPLETED == intent.action) {
+                Log.i(TAG, "Device booted")
+                start(context)
+            }
         }
     }
 
     class ExitActionReceiver : BroadcastReceiver() {
+
         override fun onReceive(context: Context, intent: Intent) {
-            (context.applicationContext as IRCApplication).requestExit()
+            // Verify that the broadcast is the expected internal action
+            if (intent.action == ACTION_EXIT) {
+                (context.applicationContext as? IRCApplication)?.requestExit()
+            }
         }
 
         companion object {
+            private const val ACTION_EXIT = "io.mrarm.irc.ACTION_EXIT"
+
+            /** Builds a properly configured Intent for this receiver. */
             @JvmStatic
-            fun getIntent(context: Context): Intent = Intent(context, ExitActionReceiver::class.java)
+            fun getIntent(context: Context): Intent =
+                Intent(context, ExitActionReceiver::class.java).setAction(ACTION_EXIT)
         }
     }
 
@@ -270,7 +294,7 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
                 group = NotificationManager.getSystemNotificationChannelGroup(ctx)
                 setShowBadge(false)
             }
-            val mgr = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            val mgr = ctx.getSystemService(NOTIFICATION_SERVICE) as android.app.NotificationManager
             mgr.createNotificationChannel(channel)
         }
     }
