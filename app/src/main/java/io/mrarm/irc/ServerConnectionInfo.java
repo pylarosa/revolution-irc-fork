@@ -11,7 +11,6 @@ import io.mrarm.chatlib.ChannelListListener;
 import io.mrarm.chatlib.ChatApi;
 import io.mrarm.chatlib.android.storage.SQLiteMessageStorageApi;
 import io.mrarm.chatlib.android.storage.SQLiteMiscStorage;
-import io.mrarm.chatlib.android.storage.SQLiteChannelDataStorage;
 import io.mrarm.chatlib.dto.MessageId;
 import io.mrarm.chatlib.irc.IRCConnection;
 import io.mrarm.chatlib.irc.IRCConnectionRequest;
@@ -29,7 +28,6 @@ import io.mrarm.irc.config.ServerConfigManager;
 import io.mrarm.irc.util.DelayScheduler;
 import io.mrarm.irc.storage.StorageRepository;
 import io.mrarm.irc.util.DelayScheduler;
-import io.mrarm.irc.storage.StorageRepository;
 import io.mrarm.irc.util.IgnoreListMessageFilter;
 import io.mrarm.irc.util.StubMessageStorageApi;
 import io.mrarm.irc.util.UserAutoRunCommandHelper;
@@ -37,11 +35,11 @@ import io.mrarm.irc.util.UserAutoRunCommandHelper;
 public class ServerConnectionInfo {
 
     private ServerConnectionManager mManager;
-    private ServerConfigData mServerConfig;
+    private final ServerConfigData mServerConfig;
     private List<String> mChannels;
     private ChatApi mApi;
-    private IRCConnectionRequest mConnectionRequest;
-    private SASLOptions mSASLOptions;
+    private final IRCConnectionRequest mConnectionRequest;
+    private final SASLOptions mSASLOptions;
     private SQLiteMiscStorage mSQLiteMiscStorage;
     private boolean mExpandedInDrawer = true;
     private boolean mConnected = false;
@@ -50,7 +48,7 @@ public class ServerConnectionInfo {
     private boolean mUserDisconnectRequest = false;
     private long mReconnectQueueTime = -1L;
     private final DelayScheduler mReconnectScheduler;
-    private NotificationManager.ConnectionManager mNotificationData;
+    private final NotificationManager.ConnectionManager mNotificationData;
     private UserAutoRunCommandHelper mAutoRunHelper;
     private final StorageRepository mStorageRepository;
     private final List<InfoChangeListener> mInfoListeners = new ArrayList<>();
@@ -77,9 +75,7 @@ public class ServerConnectionInfo {
     private void setApi(ChatApi api) {
         synchronized (this) {
             mApi = api;
-            api.getJoinedChannelList((List<String> channels) -> {
-                setChannels(channels);
-            }, null);
+            api.getJoinedChannelList(this::setChannels, null);
             api.subscribeChannelList(new ChannelListListener() {
                 @Override
                 public void onChannelListChanged(List<String> list) {
@@ -114,11 +110,11 @@ public class ServerConnectionInfo {
         }
         Log.i("ServerConnectionInfo", "Connecting...");
 
-        IRCConnection connection = null;
+        IRCConnection connection;
         boolean createdNewConnection = false;
         if (mApi == null || !(mApi instanceof IRCConnection)) {
             connection = new IRCConnection();
-            ServerConfigManager configManager = ServerConfigManager.getInstance(mManager.getContext());
+            ServerConfigManager.getInstance(mManager.getContext());
             SQLiteMessageStorageApi storageApi = mStorageRepository.getMessageStorageApi(getUUID());
             connection.getServerConnectionData().setMessageStorageApi(storageApi);
             mSQLiteMiscStorage = mStorageRepository.getMiscStorage(getUUID());
@@ -136,9 +132,7 @@ public class ServerConnectionInfo {
             messageHandler.setDCCClientManager(dccManager.createClient(this));
             messageHandler.setCtcpVersionReply(mManager.getContext()
                     .getString(R.string.app_name), BuildConfig.VERSION_NAME, "Android");
-            connection.addDisconnectListener((IRCConnection conn, Exception reason) -> {
-                notifyDisconnected();
-            });
+            connection.addDisconnectListener((IRCConnection conn, Exception reason) -> notifyDisconnected());
             createdNewConnection = true;
         } else {
             connection = (IRCConnection) mApi;
@@ -166,7 +160,7 @@ public class ServerConnectionInfo {
                 joinChannels.addAll(mServerConfig.autojoinChannels);
             if (rejoinChannels != null && mServerConfig.rejoinChannels)
                 joinChannels.addAll(rejoinChannels);
-            if (joinChannels.size() > 0)
+            if (!joinChannels.isEmpty())
                 fConnection.joinChannels(joinChannels, null, null);
 
         }, (Exception e) -> {
@@ -193,9 +187,7 @@ public class ServerConnectionInfo {
             if (!isConnected() && isConnecting()) {
                 mConnecting = false;
                 mDisconnecting = true;
-                Thread disconnectThread = new Thread(() -> {
-                    ((IRCConnection) getApiInstance()).disconnect(true);
-                });
+                Thread disconnectThread = new Thread(() -> ((IRCConnection) getApiInstance()).disconnect(true));
                 disconnectThread.setName("Disconnect Thread");
                 disconnectThread.start();
             } else if (isConnected()) {
@@ -204,9 +196,7 @@ public class ServerConnectionInfo {
                 if (userExecutedQuit) {
                     ((IRCConnection) mApi).disconnect(null, null);
                 } else {
-                    mApi.quit(message, null, (Exception e) -> {
-                        ((IRCConnection) getApiInstance()).disconnect(true);
-                    });
+                    mApi.quit(message, null, (Exception e) -> ((IRCConnection) getApiInstance()).disconnect(true));
                 }
             } else {
                 notifyFullyDisconnected();
@@ -262,7 +252,7 @@ public class ServerConnectionInfo {
         Log.i("ServerConnectionInfo", "Closing");
         if (getApiInstance() != null) {
             MessageStorageApi m = getApiInstance().getMessageStorageApi();
-            if (m != null && m instanceof SQLiteMessageStorageApi)
+            if (m instanceof SQLiteMessageStorageApi)
                 mStorageRepository.closeMessageStorage(getUUID());
             ServerConnectionData connectionData = ((ServerConnectionApi) getApiInstance())
                     .getServerConnectionData();
@@ -305,12 +295,6 @@ public class ServerConnectionInfo {
 
     public synchronized ChatApi getApiInstance() {
         return mApi;
-    }
-
-    public synchronized SQLiteMiscStorage getSQLiteMiscStorage() {
-        if (mSQLiteMiscStorage == null)
-            mSQLiteMiscStorage = mStorageRepository.getMiscStorage(getUUID());
-        return mSQLiteMiscStorage;
     }
 
     public synchronized void resetMiscStorage() {
@@ -442,7 +426,7 @@ public class ServerConnectionInfo {
         }
     }
 
-    private Runnable mReconnectRunnable = () -> {
+    private final Runnable mReconnectRunnable = () -> {
         mReconnectQueueTime = -1L;
         if (!AppSettings.isReconnectEnabled() || (AppSettings.isReconnectWiFiOnly() &&
                 !ServerConnectionManager.isWifiConnected(mManager.getContext())))
