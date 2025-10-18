@@ -25,6 +25,7 @@ import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
 import io.mrarm.irc.config.SettingChangeCallback;
 import io.mrarm.irc.config.SettingsHelper;
+import io.mrarm.irc.storage.StorageRepository;
 import io.mrarm.irc.util.PoolSerialExecutor;
 
 public class ChatLogStorageManager implements ServerConfigManager.ConnectionsListener {
@@ -47,6 +48,7 @@ public class ChatLogStorageManager implements ServerConfigManager.ConnectionsLis
 
     private ServerConnectionManager mConnectionManager;
     private ServerConfigManager mServerConfigManager;
+    private final StorageRepository mStorageRepository;
     private long mBlockSize = 0L;
     private Map<UUID, ServerManager> mServerManagers = new HashMap<>();
     private int mGlobalMessageCounter = 0;
@@ -59,6 +61,7 @@ public class ChatLogStorageManager implements ServerConfigManager.ConnectionsLis
     public ChatLogStorageManager(Context context) {
         mConnectionManager = ServerConnectionManager.getInstance(context);
         mServerConfigManager = ServerConfigManager.getInstance(context);
+        mStorageRepository = StorageRepository.getInstance(context);
 
         SettingsHelper.registerCallbacks(this);
         onSettingChanged();
@@ -165,7 +168,7 @@ public class ChatLogStorageManager implements ServerConfigManager.ConnectionsLis
 
     private long getBlockSize() {
         if (mBlockSize == 0L) {
-            File chatLogDir = mServerConfigManager.getChatLogDir();
+            File chatLogDir = mStorageRepository.getChatLogDir();
             if (!chatLogDir.exists())
                 return 0L;
             StatFs statFs = new StatFs(chatLogDir.getAbsolutePath());
@@ -215,7 +218,7 @@ public class ChatLogStorageManager implements ServerConfigManager.ConnectionsLis
         public ServerManager(ServerConfigData config) {
             mServerConfig = config;
             mCurrentLogTime = Calendar.getInstance();
-            mLogsDir = mServerConfigManager.getServerChatLogDir(config.uuid);
+            mLogsDir = mStorageRepository.getServerChatLogDir(config.uuid);
             reload();
         }
 

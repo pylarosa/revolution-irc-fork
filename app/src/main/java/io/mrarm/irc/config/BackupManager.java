@@ -33,6 +33,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import io.mrarm.irc.ServerConnectionManager;
+import io.mrarm.irc.storage.StorageRepository;
 import io.mrarm.irc.setting.ListWithCustomSetting;
 import io.mrarm.irc.util.theme.ThemeInfo;
 import io.mrarm.irc.util.theme.ThemeManager;
@@ -102,10 +103,14 @@ public class BackupManager {
             params.setFileNameInZip(BACKUP_COMMAND_ALIASES_PATH);
             zipFile.addStream(new ByteArrayInputStream(writer.toString().getBytes()), params);
 
-            NotificationCountStorage.getInstance(context).close();
+            StorageRepository repository = StorageRepository.getInstance(context);
+            repository.ensureNotificationCountsMigrated();
+            repository.closeNotificationCounts();
             params.setFileNameInZip(NOTIFICATION_COUNT_DB_PATH);
-            zipFile.addFile(NotificationCountStorage.getFile(context), params);
-            NotificationCountStorage.getInstance(context).open();
+            File notificationFile = repository.getNotificationCountFile();
+            if (notificationFile.exists())
+                zipFile.addFile(notificationFile, params);
+            repository.ensureNotificationCountsMigrated();
 
             ThemeManager themeManager = ThemeManager.getInstance(context);
             for (ThemeInfo themeInfo : themeManager.getCustomThemes()) {
@@ -244,15 +249,17 @@ public class BackupManager {
             reader.close();
             aliasManager.saveUserSettings();
 
-            NotificationCountStorage.getInstance(context).close();
-            SettingsHelper.deleteSQLiteDatabase(NotificationCountStorage.getFile(context));
+            StorageRepository repository = StorageRepository.getInstance(context);
+            repository.closeNotificationCounts();
+            File notificationFile = repository.getNotificationCountFile();
+            SettingsHelper.deleteSQLiteDatabase(notificationFile);
             try {
                 zipFile.extractFile(NOTIFICATION_COUNT_DB_PATH,
-                        ListWithCustomSetting.getCustomFilesDir(context).getAbsolutePath(),
-                        null, NotificationCountStorage.getFile(context).getAbsolutePath());
+                        notificationFile.getParentFile().getAbsolutePath(),
+                        null, notificationFile.getName());
             } catch (ZipException ignored) {
             }
-            NotificationCountStorage.getInstance(context).open();
+            repository.ensureNotificationCountsMigrated();
 
             themeManager.reloadThemes();
         } catch (ZipException e) {

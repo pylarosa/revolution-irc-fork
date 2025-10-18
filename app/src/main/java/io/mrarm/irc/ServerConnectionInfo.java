@@ -27,6 +27,7 @@ import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
 import io.mrarm.irc.util.DelayScheduler;
+import io.mrarm.irc.storage.StorageRepository;
 import io.mrarm.irc.util.IgnoreListMessageFilter;
 import io.mrarm.irc.util.StubMessageStorageApi;
 import io.mrarm.irc.util.UserAutoRunCommandHelper;
@@ -49,6 +50,7 @@ public class ServerConnectionInfo {
     private final DelayScheduler mReconnectScheduler;
     private NotificationManager.ConnectionManager mNotificationData;
     private UserAutoRunCommandHelper mAutoRunHelper;
+    private final StorageRepository mStorageRepository;
     private final List<InfoChangeListener> mInfoListeners = new ArrayList<>();
     private final List<ChannelListChangeListener> mChannelsListeners = new ArrayList<>();
     private int mCurrentReconnectAttempt = -1;
@@ -67,6 +69,7 @@ public class ServerConnectionInfo {
         mReconnectScheduler = reconnectScheduler;
         if (mChannels != null)
             Collections.sort(mChannels, String::compareToIgnoreCase);
+        mStorageRepository = StorageRepository.getInstance(manager.getContext());
     }
 
     private void setApi(ChatApi api) {
@@ -114,9 +117,10 @@ public class ServerConnectionInfo {
         if (mApi == null || !(mApi instanceof IRCConnection)) {
             connection = new IRCConnection();
             ServerConfigManager configManager = ServerConfigManager.getInstance(mManager.getContext());
-            connection.getServerConnectionData().setMessageStorageApi(new SQLiteMessageStorageApi(configManager.getServerChatLogDir(getUUID())));
-            mSQLiteMiscStorage = new SQLiteMiscStorage(configManager.getServerMiscDataFile(getUUID()));
-            connection.getServerConnectionData().setChannelDataStorage(new SQLiteChannelDataStorage(mSQLiteMiscStorage));
+            SQLiteMessageStorageApi storageApi = mStorageRepository.getMessageStorageApi(getUUID());
+            connection.getServerConnectionData().setMessageStorageApi(storageApi);
+            mSQLiteMiscStorage = mStorageRepository.getMiscStorage(getUUID());
+            connection.getServerConnectionData().setChannelDataStorage(mStorageRepository.createChannelDataStorage(getUUID()));
             connection.getServerConnectionData().getMessageFilterList().addMessageFilter(new IgnoreListMessageFilter(mServerConfig));
             if (mSASLOptions != null)
                 connection.getServerConnectionData().getCapabilityManager().registerCapability(
@@ -257,14 +261,16 @@ public class ServerConnectionInfo {
         if (getApiInstance() != null) {
             MessageStorageApi m = getApiInstance().getMessageStorageApi();
             if (m != null && m instanceof SQLiteMessageStorageApi)
-                ((SQLiteMessageStorageApi) m).close();
+                mStorageRepository.closeMessageStorage(getUUID());
             ServerConnectionData connectionData = ((ServerConnectionApi) getApiInstance())
                     .getServerConnectionData();
             connectionData.setMessageStorageApi(new StubMessageStorageApi());
             connectionData.setChannelDataStorage(null);
         }
-        if (mSQLiteMiscStorage != null)
-            mSQLiteMiscStorage.close();
+        if (mSQLiteMiscStorage != null) {
+            mStorageRepository.closeMiscStorage(getUUID());
+            mSQLiteMiscStorage = null;
+        }
     }
 
     public void notifyConnectivityChanged(boolean hasAnyConnectivity, boolean hasWifi) {
@@ -300,7 +306,15 @@ public class ServerConnectionInfo {
     }
 
     public synchronized SQLiteMiscStorage getSQLiteMiscStorage() {
+        if (mSQLiteMiscStorage == null)
+            mSQLiteMiscStorage = mStorageRepository.getMiscStorage(getUUID());
         return mSQLiteMiscStorage;
+    }
+
+    public synchronized void resetMiscStorage() {
+        if (mSQLiteMiscStorage != null)
+            mStorageRepository.closeMiscStorage(getUUID());
+        mSQLiteMiscStorage = null;
     }
 
     public MessageId.Parser getMessageIdParser() {
