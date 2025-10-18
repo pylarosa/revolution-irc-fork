@@ -37,6 +37,7 @@ import io.mrarm.irc.dialog.ServerStorageLimitDialog;
 import io.mrarm.irc.dialog.StorageLimitsDialog;
 import io.mrarm.irc.storage.StorageRepository;
 import io.mrarm.irc.storage.db.MessageLogEntity;
+import io.mrarm.irc.storage.StorageRepository;
 import io.mrarm.irc.util.ColoredTextBuilder;
 import io.mrarm.irc.util.StubMessageStorageApi;
 import io.mrarm.irc.util.StyledAttributesHelper;
