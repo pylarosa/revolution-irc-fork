@@ -1,7 +1,5 @@
 package io.mrarm.irc;
 
-import android.os.Handler;
-import android.os.Looper;
 import android.util.Log;
 
 import java.util.ArrayList;
@@ -28,13 +26,12 @@ import io.mrarm.irc.chat.ChatUIData;
 import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
+import io.mrarm.irc.util.DelayScheduler;
 import io.mrarm.irc.util.IgnoreListMessageFilter;
 import io.mrarm.irc.util.StubMessageStorageApi;
 import io.mrarm.irc.util.UserAutoRunCommandHelper;
 
 public class ServerConnectionInfo {
-
-    private static Handler mReconnectHandler = new Handler(Looper.getMainLooper());
 
     private ServerConnectionManager mManager;
     private ServerConfigData mServerConfig;
@@ -49,6 +46,7 @@ public class ServerConnectionInfo {
     private boolean mDisconnecting = false;
     private boolean mUserDisconnectRequest = false;
     private long mReconnectQueueTime = -1L;
+    private final DelayScheduler mReconnectScheduler;
     private NotificationManager.ConnectionManager mNotificationData;
     private UserAutoRunCommandHelper mAutoRunHelper;
     private final List<InfoChangeListener> mInfoListeners = new ArrayList<>();
@@ -59,13 +57,14 @@ public class ServerConnectionInfo {
 
     public ServerConnectionInfo(ServerConnectionManager manager, ServerConfigData config,
                                 IRCConnectionRequest connectionRequest, SASLOptions saslOptions,
-                                List<String> joinChannels) {
+                                List<String> joinChannels, DelayScheduler reconnectScheduler) {
         mManager = manager;
         mServerConfig = config;
         mConnectionRequest = connectionRequest;
         mSASLOptions = saslOptions;
         mNotificationData = new NotificationManager.ConnectionManager(this);
         mChannels = joinChannels;
+        mReconnectScheduler = reconnectScheduler;
         if (mChannels != null)
             Collections.sort(mChannels, String::compareToIgnoreCase);
     }
@@ -184,7 +183,7 @@ public class ServerConnectionInfo {
     private void disconnect(boolean userExecutedQuit) {
         synchronized (this) {
             mUserDisconnectRequest = true;
-            mReconnectHandler.removeCallbacks(mReconnectRunnable);
+            mReconnectScheduler.cancel(mReconnectRunnable);
             if (!isConnected() && isConnecting()) {
                 mConnecting = false;
                 mDisconnecting = true;
@@ -241,7 +240,7 @@ public class ServerConnectionInfo {
             return;
         Log.i("ServerConnectionInfo", "Queuing reconnect in " + reconnectDelay + " ms");
         mReconnectQueueTime = System.nanoTime();
-        mReconnectHandler.postDelayed(mReconnectRunnable, reconnectDelay);
+        mReconnectScheduler.schedule(reconnectDelay, mReconnectRunnable);
     }
 
     private void notifyFullyDisconnected() {
@@ -269,7 +268,7 @@ public class ServerConnectionInfo {
     }
 
     public void notifyConnectivityChanged(boolean hasAnyConnectivity, boolean hasWifi) {
-        mReconnectHandler.removeCallbacks(mReconnectRunnable);
+        mReconnectScheduler.cancel(mReconnectRunnable);
 
         if (!hasAnyConnectivity || !AppSettings.isReconnectEnabled() ||
                 (AppSettings.isReconnectWiFiOnly() && !hasWifi))
@@ -284,7 +283,7 @@ public class ServerConnectionInfo {
             if (reconnectDelay <= 0L)
                 connect();
             else
-                mReconnectHandler.postDelayed(mReconnectRunnable, reconnectDelay);
+                mReconnectScheduler.schedule(reconnectDelay, mReconnectRunnable);
         }
     }
 
