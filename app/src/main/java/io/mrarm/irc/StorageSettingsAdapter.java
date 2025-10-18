@@ -32,6 +32,7 @@ import io.mrarm.irc.config.SettingsHelper;
 import io.mrarm.irc.dialog.MenuBottomSheetDialog;
 import io.mrarm.irc.dialog.ServerStorageLimitDialog;
 import io.mrarm.irc.dialog.StorageLimitsDialog;
+import io.mrarm.irc.storage.StorageRepository;
 import io.mrarm.irc.util.ColoredTextBuilder;
 import io.mrarm.irc.util.StubMessageStorageApi;
 import io.mrarm.irc.util.StyledAttributesHelper;
@@ -47,8 +48,10 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
     private SpaceCalculateTask mAsyncTask = null;
     private long mConfigurationSize = 0L;
     private int mSecondaryTextColor;
+    private final StorageRepository mStorageRepository;
 
     public StorageSettingsAdapter(Context context) {
+        mStorageRepository = StorageRepository.getInstance(context);
         refreshServerLogs(context);
 
         mSecondaryTextColor = StyledAttributesHelper.getColor(context, android.R.attr.textColorSecondary, Color.BLACK);
@@ -304,11 +307,13 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
 
         private WeakReference<StorageSettingsAdapter> mAdapter;
         private ServerConfigManager mServerManager;
+        private StorageRepository mStorageRepository;
         private File mDataDir;
         private StatFs mStatFs;
 
         public SpaceCalculateTask(Context context, StorageSettingsAdapter adapter) {
             mServerManager = ServerConfigManager.getInstance(context);
+            mStorageRepository = StorageRepository.getInstance(context);
             mDataDir = new File(context.getApplicationInfo().dataDir);
             mAdapter = new WeakReference<>(adapter);
         }
@@ -327,7 +332,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
             for (ServerConfigData data : mServerManager.getServers()) {
                 if (mAdapter.get() == null)
                     return null;
-                File file = mServerManager.getServerChatLogDir(data.uuid);
+                File file = mStorageRepository.getServerChatLogDir(data.uuid);
                 processedDirs.add(file);
                 if (!file.exists())
                     continue;
@@ -336,7 +341,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                     continue;
                 publishProgress(new ServerLogsEntry(data.name, data.uuid, size));
             }
-            File[] files = mServerManager.getChatLogDir().listFiles();
+            File[] files = mStorageRepository.getChatLogDir().listFiles();
             if (files != null) {
                 for (File file : files) {
                     if (processedDirs.contains(file))
@@ -424,6 +429,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
         @Override
         protected Void doInBackground(Void... voids) {
             Context ctx = mContext;
+            StorageRepository repository = StorageSettingsAdapter.this.mStorageRepository;
             if (mDeleteConfig) {
                 ServerConnectionManager mgr = ServerConnectionManager.getInstance(null);
                 if (mgr != null)
@@ -435,7 +441,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                 NotificationRuleManager.getUserRules(ctx).clear();
                 CommandAliasManager.getInstance(ctx).getUserAliases().clear();
                 SettingsHelper.getInstance(ctx).clear();
-                NotificationCountStorage.getInstance(ctx).close();
+                repository.closeNotificationCounts();
 
                 File files = ctx.getFilesDir();
                 for (File file : files.listFiles()) {
@@ -444,12 +450,12 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                     deleteRecursive(file);
                 }
 
-                NotificationCountStorage.getInstance(ctx).open();
+                repository.ensureNotificationCountsMigrated();
             }
             if (mDeleteServerLogs != null) {
                 deleteChatLogDir(mDeleteServerLogs);
             } else {
-                File[] logFiles = ServerConfigManager.getInstance(mContext).getChatLogDir().listFiles();
+                File[] logFiles = StorageSettingsAdapter.this.mStorageRepository.getChatLogDir().listFiles();
                 if (logFiles == null)
                     logFiles = new File[0];
                 for (File file : logFiles) {
@@ -475,20 +481,24 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
             if (connectionManager != null)
                 connectionManager.killDisconnectingConnection(uuid);
             ServerConnectionInfo connection = connectionManager != null ? connectionManager.getConnection(uuid) : null;
-            SQLiteMessageStorageApi storageApi = null;
-            if (connection != null && connection.getApiInstance() != null &&
-                    connection.getApiInstance() instanceof ServerConnectionApi &&
-                    connection.getApiInstance().getMessageStorageApi() != null &&
-                    connection.getApiInstance().getMessageStorageApi() instanceof SQLiteMessageStorageApi) {
-                storageApi = (SQLiteMessageStorageApi) connection.getApiInstance().getMessageStorageApi();
-                storageApi.close();
-                ((ServerConnectionApi) connection.getApiInstance()).getServerConnectionData().setMessageStorageApi(new StubMessageStorageApi());
+            StorageRepository repository = StorageSettingsAdapter.this.mStorageRepository;
+            boolean hadMessageStorage = false;
+            if (connection != null && connection.getApiInstance() instanceof ServerConnectionApi) {
+                ServerConnectionApi api = (ServerConnectionApi) connection.getApiInstance();
+                if (api.getServerConnectionData().getMessageStorageApi() instanceof SQLiteMessageStorageApi) {
+                    hadMessageStorage = true;
+                    api.getServerConnectionData().setMessageStorageApi(new StubMessageStorageApi());
+                    repository.closeMessageStorage(uuid);
+                }
+                connection.resetMiscStorage();
             }
-            File file = ServerConfigManager.getInstance(mContext).getServerChatLogDir(uuid);
+            File file = repository.getServerChatLogDir(uuid);
             deleteRecursive(file);
-            if (storageApi != null) {
-                storageApi.open();
-                ((ServerConnectionApi) connection.getApiInstance()).getServerConnectionData().setMessageStorageApi(storageApi);
+            if (hadMessageStorage && connection != null && connection.getApiInstance() instanceof ServerConnectionApi) {
+                ServerConnectionApi api = (ServerConnectionApi) connection.getApiInstance();
+                SQLiteMessageStorageApi reopened = repository.getMessageStorageApi(uuid);
+                api.getServerConnectionData().setMessageStorageApi(reopened);
+                api.getServerConnectionData().setChannelDataStorage(repository.createChannelDataStorage(uuid));
             }
         }
 
