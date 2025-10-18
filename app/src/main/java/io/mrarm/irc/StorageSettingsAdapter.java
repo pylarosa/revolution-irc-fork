@@ -17,8 +17,11 @@ import android.widget.TextView;
 import java.io.File;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 import io.mrarm.chatlib.android.storage.SQLiteMessageStorageApi;
@@ -33,6 +36,7 @@ import io.mrarm.irc.dialog.MenuBottomSheetDialog;
 import io.mrarm.irc.dialog.ServerStorageLimitDialog;
 import io.mrarm.irc.dialog.StorageLimitsDialog;
 import io.mrarm.irc.storage.StorageRepository;
+import io.mrarm.irc.storage.db.MessageLogEntity;
 import io.mrarm.irc.util.ColoredTextBuilder;
 import io.mrarm.irc.util.StubMessageStorageApi;
 import io.mrarm.irc.util.StyledAttributesHelper;
@@ -217,8 +221,9 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
 
         private void showActionsMenu() {
             MenuBottomSheetDialog menu = new MenuBottomSheetDialog(itemView.getContext());
-            if (mText.getTag() != null) {
-                ServerConfigData server = ServerConfigManager.getInstance(itemView.getContext()).findServer((UUID) mText.getTag());
+            UUID serverId = (UUID) mText.getTag();
+            if (serverId != null) {
+                ServerConfigData server = ServerConfigManager.getInstance(itemView.getContext()).findServer(serverId);
                 if (server != null && server.storageLimit == 0L) {
                     menu.addItem(R.string.pref_storage_set_server_limit, R.drawable.ic_storage, (MenuBottomSheetDialog.Item it) -> {
                         ServerStorageLimitDialog dialog = new ServerStorageLimitDialog(itemView.getContext(), server);
@@ -250,8 +255,14 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                     });
                 }
             }
+            if (serverId != null) {
+                menu.addItem(R.string.pref_storage_view_recent_logs, R.drawable.ic_history, (MenuBottomSheetDialog.Item it) -> {
+                    new FetchRecentLogsTask(itemView.getContext(), serverId).execute();
+                    return true;
+                });
+            }
             menu.addItem(R.string.pref_storage_clear_server_chat_logs, R.drawable.ic_delete, (MenuBottomSheetDialog.Item it) -> {
-                new RemoveDataTask(itemView.getContext(), false, (UUID) mText.getTag()).execute();
+                new RemoveDataTask(itemView.getContext(), false, serverId).execute();
                 return true;
             });
             menu.show();
@@ -492,6 +503,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                 }
                 connection.resetMiscStorage();
             }
+            repository.closeMessageLogs(uuid);
             File file = repository.getServerChatLogDir(uuid);
             deleteRecursive(file);
             if (hadMessageStorage && connection != null && connection.getApiInstance() instanceof ServerConnectionApi) {
@@ -513,6 +525,59 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
             file.delete();
         }
 
+    }
+
+    private class FetchRecentLogsTask extends AsyncTask<Void, Void, List<MessageLogEntity>> {
+
+        private static final int MAX_RESULTS = 50;
+
+        private final WeakReference<Context> mContextRef;
+        private final UUID mServerId;
+
+        FetchRecentLogsTask(Context context, UUID serverId) {
+            mContextRef = new WeakReference<>(context);
+            mServerId = serverId;
+        }
+
+        @Override
+        protected List<MessageLogEntity> doInBackground(Void... voids) {
+            return mStorageRepository.getLatestMessages(mServerId, MAX_RESULTS);
+        }
+
+        @Override
+        protected void onPostExecute(List<MessageLogEntity> messageLogEntities) {
+            Context context = mContextRef.get();
+            if (context == null)
+                return;
+            AlertDialog.Builder builder = new AlertDialog.Builder(context)
+                    .setTitle(R.string.pref_storage_recent_logs_title)
+                    .setPositiveButton(android.R.string.ok, null);
+            if (messageLogEntities == null || messageLogEntities.isEmpty()) {
+                builder.setMessage(R.string.pref_storage_recent_logs_empty);
+                builder.show();
+                return;
+            }
+            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
+            StringBuilder builderText = new StringBuilder();
+            for (MessageLogEntity entity : messageLogEntities) {
+                if (builderText.length() > 0)
+                    builderText.append('\n');
+                builderText.append(format.format(new Date(entity.date)));
+                if (entity.senderData != null && !entity.senderData.isEmpty()) {
+                    builderText.append(' ');
+                    builderText.append(entity.senderData);
+                }
+                String body = entity.text;
+                if (body == null || body.isEmpty())
+                    body = entity.extra;
+                if (body != null && !body.isEmpty()) {
+                    builderText.append(": ");
+                    builderText.append(body);
+                }
+            }
+            builder.setMessage(builderText.toString());
+            builder.show();
+        }
     }
 
     private static String formatFileSize(long size) {
