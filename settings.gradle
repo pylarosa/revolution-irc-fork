@@ -1,2 +1,4 @@
 includeBuild 'app/ircSettingsPlugin'
-include ':app'
+include ':app', ':chatlib'
+project(':chatlib').projectDir = new File(rootDir, 'libs/chatlib')
+

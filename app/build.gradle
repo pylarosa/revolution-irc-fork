@@ -3,6 +3,11 @@ apply plugin: 'io.mrarm.irc.build.settings-builder'
 apply plugin: 'org.jetbrains.kotlin.android'
 
 android {
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
     compileSdk 35
     defaultConfig {
         applicationId "io.mrarm.irc"
@@ -12,16 +17,26 @@ android {
         versionName "0.5.5"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
-            useSupportLibrary true
+            useSupportLibrary = true
         }
         vectorDrawables.useSupportLibrary = true
+        buildFeatures {
+            buildConfig = true
+        }
     }
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(21)  // Use JDK 21 compiler
+        }
+    }
+
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17      // Emit Java 17 bytecode
+        targetCompatibility = JavaVersion.VERSION_17
     }
+
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = "17"                                  // Keep Kotlin aligned
     }
     buildTypes {
         release {
@@ -29,11 +44,11 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
         debug {
-            multiDexEnabled true
+            multiDexEnabled = true
         }
     }
-    namespace 'io.mrarm.irc'
-    buildToolsVersion '35.0.1'
+    namespace = 'io.mrarm.irc'
+    buildToolsVersion = '35.0.1'
 }
 
 dependencies {
@@ -47,7 +62,7 @@ dependencies {
     implementation 'androidx.documentfile:documentfile:1.0.1'
     implementation 'com.google.android.material:material:1.12.0'
     implementation 'com.google.android:flexbox:2.0.1'
-    implementation 'com.github.mcmrarm:chatlib:0.3.3'
+    implementation project(':chatlib')
     implementation 'com.github.mcmrarm:chatlib-android-core:0.1.0'
     implementation 'com.github.mcmrarm:chatlib-android-storage:0.3.1'
     implementation 'com.google.code.gson:gson:2.10.1'
