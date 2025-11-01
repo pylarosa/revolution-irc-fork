@@ -9,8 +9,9 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
-import androidx.annotation.RequiresApi;
 import android.util.Log;
+
+import androidx.annotation.RequiresApi;
 
 import io.mrarm.irc.ServerConnectionManager;
 import io.mrarm.irc.config.AppSettings;
@@ -144,7 +145,7 @@ public class ServerPingScheduler {
 
     private PendingIntent getAlarmManagerIntent() {
         Intent intent = new Intent(context, ServerPingBroadcastReceiver.class);
-        PendingIntent pi = PendingIntent.getBroadcast(context, INTENT_ID, intent, 0);
+        PendingIntent pi = PendingIntent.getBroadcast(context, INTENT_ID, intent, PendingIntent.FLAG_IMMUTABLE);
         return pi;
     }
 
