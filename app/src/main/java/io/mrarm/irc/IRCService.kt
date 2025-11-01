@@ -40,7 +40,10 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
     /** Called when the service is first created. Initializes managers and listeners. */
     override fun onCreate() {
         super.onCreate()
-
+        Log.i(
+            "[FLOW]",
+            ">>> IRC service created, IRCService.oncreate() called"
+        )
         WarningHelper.setAppContext(applicationContext)
         ChatLogStorageManager.getInstance(applicationContext)
 
