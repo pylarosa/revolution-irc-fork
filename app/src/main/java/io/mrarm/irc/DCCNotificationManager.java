@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+
 import androidx.core.app.NotificationCompat;
 
 import java.util.ArrayList;
@@ -176,8 +177,11 @@ public class DCCNotificationManager implements DCCServerManager.UploadListener,
     private PendingIntent getOpenTransfersIntent() {
         if (mOpenTransfersIntent == null) {
             Intent intent = new Intent(mContext, DCCActivity.class);
-            mOpenTransfersIntent = PendingIntent.getActivity(mContext, DCC_SUMMARY_NOTIFICATION_ID,
-                    intent, 0);
+            mOpenTransfersIntent = PendingIntent.getActivity(
+                    mContext,
+                    DCC_SUMMARY_NOTIFICATION_ID,
+                    intent,
+                    PendingIntent.FLAG_IMMUTABLE);
         }
         return mOpenTransfersIntent;
     }
@@ -311,14 +315,14 @@ public class DCCNotificationManager implements DCCServerManager.UploadListener,
             builder.addAction(acceptIcon, mContext.getString(R.string.action_accept),
                     PendingIntent.getBroadcast(mContext, id,
                             ActionReceiver.getApproveIntent(mContext, id, true),
-                            PendingIntent.FLAG_CANCEL_CURRENT));
+                            PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE));
             int cancelIcon = Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP ?
                     R.drawable.ic_close : R.drawable.ic_notification_close;
             builder.addAction(cancelIcon, mContext.getString(R.string.action_reject),
                     PendingIntent.getBroadcast(mContext,
                             DCC_SECOND_INTENT_ID_START - DCC_NOTIFICATION_ID_START + id,
                             ActionReceiver.getApproveIntent(mContext, id, false),
-                            PendingIntent.FLAG_CANCEL_CURRENT));
+                            PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         } else if (download.getClient() != null) {
             DCCClient client = download.getClient();
             int unit = FormatUtils.getByteFormatUnit(client.getExpectedSize());
