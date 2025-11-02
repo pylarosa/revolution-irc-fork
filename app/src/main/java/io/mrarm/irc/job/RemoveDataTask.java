@@ -3,6 +3,8 @@ package io.mrarm.irc.job;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -60,10 +62,14 @@ public class RemoveDataTask {
 
     private void execute() {
         showProgressDialog();
-        Async.io(
-                this::performDeletion,
-                this::onFinished
-        );
+        Async.io(this::performDeletion, () -> {
+            Async.ui(() -> {
+                new Handler(Looper.getMainLooper()).postDelayed(
+                        this::onFinished,
+                        300
+                );
+            });
+        });
     }
 
     private void showProgressDialog() {
@@ -200,9 +206,11 @@ public class RemoveDataTask {
 
         if (hadMessageStorage && connection != null
                 && connection.getApiInstance() instanceof ServerConnectionApi api) {
-            SQLiteMessageStorageApi reopened = repository.getMessageStorageApi(uuid);
-            api.getServerConnectionData().setMessageStorageApi(reopened);
-            api.getServerConnectionData().setChannelDataStorage(repository.createChannelDataStorage(uuid));
+            Async.ui(() -> {
+                SQLiteMessageStorageApi reopened = repository.getMessageStorageApi(uuid);
+                api.getServerConnectionData().setMessageStorageApi(reopened);
+                api.getServerConnectionData().setChannelDataStorage(repository.createChannelDataStorage(uuid));
+            });
         }
 
     }
