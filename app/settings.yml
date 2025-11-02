@@ -53,7 +53,7 @@ ChatSettings:
     - spec: boolean textAutocorrectEnabled = true
       pref: chat_text_autocorrect
 
-    - spec: boolean hideJoinPartMessages = false
+    - spec: boolean hideJoinPartMessages = true
       getter: shouldHideJoinPartMessages
     - spec: String appbarCompactMode = "auto"
       enum: ["auto", "always", "never"]

@@ -13,6 +13,7 @@ import android.net.NetworkRequest
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import androidx.annotation.Keep
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
@@ -30,6 +31,7 @@ import kotlinx.coroutines.launch
  * receiving messages, and posting notifications. Runs as a foreground service to ensure
  * persistence even when the app is not in the foreground.
  */
+@Keep
 class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListener {
 
     private var createdChannel = false
@@ -240,6 +242,7 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
         }
     }
 
+    @Keep
     class ExitActionReceiver : BroadcastReceiver() {
 
         override fun onReceive(context: Context, intent: Intent) {

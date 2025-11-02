@@ -1,42 +1,58 @@
 # Add project specific ProGuard rules here.
-# By default, the flags in this file are appended to flags specified
-# in /home/paul/Documents/app/android-sdk/tools/proguard/proguard-android.txt
 # You can edit the include path and order by changing the proguardFiles
 # directive in build.gradle.
 #
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
-# Add any project specific keep options here:
+# Keep line numbers for stack traces
+-keepattributes SourceFile,LineNumberTable,Signature,*Annotation*
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# --- Keep @Keep-annotated classes and members
+-keep @androidx.annotation.Keep class * { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
--keepattributes SourceFile,LineNumberTable
+# Keep entry points (scoped)
+-keep class io.mrarm.irc.IRCApplication { *; }
+-keep class io.mrarm.irc.MainActivity { *; }
+-keep class io.mrarm.irc.IRCService { *; }
+-keep class io.mrarm.irc.SettingsActivity { *; }
+-keep class io.mrarm.irc.DCCActivity { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# --- Fragments created reflectively
+-keep class io.mrarm.irc.chat.** extends androidx.fragment.app.Fragment { *; }
+-keep class io.mrarm.irc.setting.** extends androidx.fragment.app.Fragment { *; }
 
--dontobfuscate
--optimizations !code/allocation/variable
 
+# --- YAML-generated configuration classes
+-keep class io.mrarm.irc.config.** { *; }
+
+# --- Views inflated dynamically via Class.forName(...)
+-keep class io.mrarm.irc.view.** {
+    <init>(android.content.Context, android.util.AttributeSet);
+}
+
+# RecyclerView ViewHolder constructors
 -keep public class * extends io.mrarm.irc.util.EntryRecyclerViewAdapter$EntryHolder {
     <init>(...);
 }
 
--dontwarn org.spongycastle.**
--dontwarn org.junit.**
--dontwarn android.test.**
+# --- Keep classes with native methods
+-keepclasseswithmembers class * {
+    native <methods>;
+}
 
-# gson
+# --- Preserve resource references used by reflection
+-keepclassmembers class **.R$* {
+    public static <fields>;
+}
+
+# --- Gson reflection (JSON serialization/deserialization)
 -keep class * extends com.google.gson.TypeAdapter
 -keep class * implements com.google.gson.TypeAdapterFactory
 -keep class * implements com.google.gson.JsonSerializer
 -keep class * implements com.google.gson.JsonDeserializer
+
+# --- Suppress harmless warnings
+-dontwarn org.spongycastle.**
+-dontwarn org.junit.**
+-dontwarn android.test.**
