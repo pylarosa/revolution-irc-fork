@@ -541,10 +541,18 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
         Activity activity = getActivity();
         if (activity == null)
             return;
-        activity.runOnUiThread(() -> ((ChatFragment) getParentFragment())
-                .setCurrentChannelInfo(mChannelTopic,
+        activity.runOnUiThread(() -> {
+            if (!isAdded()) return;
+            Fragment parent = getParentFragment();
+            if (parent instanceof ChatFragment) {
+                ((ChatFragment) parent).setCurrentChannelInfo(
+                        mChannelTopic,
                         mChannelTopicSetBy != null ? mChannelTopicSetBy.getNick() : null,
-                        mChannelTopicSetOn, mMembers));
+                        mChannelTopicSetOn,
+                        mMembers
+                );
+            }
+        });
     }
 
     private void updateMessageList(Runnable r) {
