@@ -168,7 +168,8 @@ public class NotificationManager {
                 .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN);
         if (isLong) {
             PendingIntent intent = PendingIntent.getActivity(context, CHAT_SUMMARY_NOTIFICATION_ID,
-                    MainActivity.getLaunchIntent(context, null, null), PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                    MainActivity.getLaunchIntent(context, null, null),
+                    PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE);
             notification
                     .setContentTitle(context.getResources().getQuantityString(R.plurals.notify_multiple_messages, notificationCount, notificationCount))
                     .setContentText(longBuilder.toString())
