@@ -7,11 +7,12 @@ import android.content.DialogInterface;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
-import androidx.core.app.NotificationCompat;
-import androidx.appcompat.app.AlertDialog;
 import android.text.SpannableString;
 import android.text.style.TypefaceSpan;
 import android.util.Log;
+
+import androidx.appcompat.app.AlertDialog;
+import androidx.core.app.NotificationCompat;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -196,7 +197,9 @@ public class UserAutoRunCommandHelper implements ServerConnectionInfo.ChannelLis
             notification.setPriority(NotificationCompat.PRIORITY_DEFAULT);
             notification.setContentTitle(context.getString(R.string.connection_error_command_title));
             notification.setContentText(context.getString(R.string.connection_error_command_notification_desc));
-            notification.setContentIntent(PendingIntent.getActivity(context, notificationId, MainActivity.getLaunchIntent(context, null, null), PendingIntent.FLAG_CANCEL_CURRENT));
+            notification.setContentIntent(PendingIntent.getActivity(
+                    context, notificationId, MainActivity.getLaunchIntent(context, null, null),
+                    PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         }
 
     }
