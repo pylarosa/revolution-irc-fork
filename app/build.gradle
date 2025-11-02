@@ -8,9 +8,9 @@ android {
         checkReleaseBuilds false
     }
 
-    compileSdk 35
+    compileSdkVersion 35
     defaultConfig {
-        applicationId "io.mrarm.irc"
+        applicationId "io.mrarm.irc.dev"
         minSdkVersion 21
         targetSdkVersion 35
         versionCode 13
@@ -26,22 +26,26 @@ android {
     }
     java {
         toolchain {
-            languageVersion = JavaLanguageVersion.of(21)  // Use JDK 21 compiler
+            languageVersion = JavaLanguageVersion.of(21)
         }
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17      // Emit Java 17 bytecode
+        sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = "17"                                  // Keep Kotlin aligned
+        jvmTarget = "17"
     }
     buildTypes {
         release {
             minifyEnabled true
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            shrinkResources true
+            proguardFiles(
+                    getDefaultProguardFile('proguard-android-optimize.txt'),
+                    'proguard-rules.pro'
+            )
         }
         debug {
             multiDexEnabled = true

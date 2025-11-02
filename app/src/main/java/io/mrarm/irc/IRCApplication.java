@@ -5,6 +5,8 @@ import android.app.Application;
 import android.os.Bundle;
 import android.util.Log;
 
+import androidx.annotation.Keep;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -54,6 +56,7 @@ import io.mrarm.irc.config.SettingsHelper;
  * {@code android:name=".IRCApplication"} entry in AndroidManifest.xml.
  */
 
+@Keep
 public class IRCApplication extends Application implements Application.ActivityLifecycleCallbacks {
     /**
      * Holds application-wide runtime references used for graceful shutdown.

@@ -171,7 +171,7 @@
 
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="io.mrarm.irc.fileprovider"
+            android:authorities="io.mrarm.irc.dev.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
@@ -180,7 +180,7 @@
         </provider>
         <provider
             android:name=".DCCFileProvider"
-            android:authorities="io.mrarm.irc.dccfileprovider"
+            android:authorities="io.mrarm.irc.dev.dccfileprovider"
             android:exported="false"
             android:grantUriPermissions="true" />
     </application>

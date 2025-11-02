@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.view.MenuItem;
 import android.view.View;
 
+import androidx.annotation.Keep;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentTransaction;
 
@@ -79,6 +80,7 @@ public class SettingsActivity extends ThemedActivity {
                 .commit();
     }
 
+    @Keep
     public static class CategoriesFragment extends SettingsCategoriesFragment {
 
         public static CategoriesFragment newInstance() {
