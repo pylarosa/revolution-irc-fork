@@ -1,18 +1,24 @@
 package io.mrarm.irc;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.Color;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.StatFs;
-import androidx.appcompat.app.AlertDialog;
-import androidx.recyclerview.widget.RecyclerView;
 import android.text.style.ForegroundColorSpan;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+
+import androidx.activity.ComponentActivity;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
+import androidx.lifecycle.DefaultLifecycleObserver;
+import androidx.lifecycle.LifecycleOwner;
+import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.File;
 import java.io.IOException;
@@ -27,7 +33,6 @@ import java.util.UUID;
 import io.mrarm.chatlib.android.storage.SQLiteMessageStorageApi;
 import io.mrarm.chatlib.irc.ServerConnectionApi;
 import io.mrarm.irc.config.CommandAliasManager;
-import io.mrarm.irc.config.NotificationCountStorage;
 import io.mrarm.irc.config.NotificationRuleManager;
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
@@ -37,7 +42,6 @@ import io.mrarm.irc.dialog.ServerStorageLimitDialog;
 import io.mrarm.irc.dialog.StorageLimitsDialog;
 import io.mrarm.irc.storage.StorageRepository;
 import io.mrarm.irc.storage.db.MessageLogEntity;
-import io.mrarm.irc.storage.StorageRepository;
 import io.mrarm.irc.util.ColoredTextBuilder;
 import io.mrarm.irc.util.StubMessageStorageApi;
 import io.mrarm.irc.util.StyledAttributesHelper;
@@ -432,10 +436,30 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
             mContext = context;
             mDeleteConfig = deleteConfig;
             mDeleteServerLogs = deleteOnlyServerLogs;
-            mAlertDialog = new AlertDialog.Builder(context)
-                    .setCancelable(false)
-                    .setView(R.layout.dialog_please_wait)
-                    .show();
+
+            if (context instanceof Activity a && !a.isFinishing() && !a.isDestroyed()) {
+                AlertDialog dlg = new AlertDialog.Builder(a)
+                        .setCancelable(false)
+                        .setView(R.layout.dialog_please_wait)
+                        .create();
+
+                // auto-dismiss if the Activity is destroyed
+                if (a instanceof ComponentActivity) {
+                    ((ComponentActivity) a).getLifecycle()
+                            .addObserver(new DefaultLifecycleObserver() {
+                                @Override
+                                public void onDestroy(@NonNull LifecycleOwner owner) {
+                                    if (dlg.isShowing()) dlg.dismiss();
+                                }
+                            });
+                }
+
+                dlg.show();
+                mAlertDialog = dlg;
+            } else {
+                // Activity no longer valid; skip showing dialog
+                mAlertDialog = null;
+            }
         }
 
         @Override
