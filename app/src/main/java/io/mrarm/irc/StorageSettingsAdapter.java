@@ -4,7 +4,6 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.Color;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.StatFs;
 import android.text.style.ForegroundColorSpan;
 import android.view.LayoutInflater;
@@ -24,12 +23,14 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.concurrent.Future;
 
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
 import io.mrarm.irc.dialog.MenuBottomSheetDialog;
 import io.mrarm.irc.dialog.ServerStorageLimitDialog;
 import io.mrarm.irc.dialog.StorageLimitsDialog;
+import io.mrarm.irc.job.CalculateStorageJob;
 import io.mrarm.irc.job.RemoveDataTask;
 import io.mrarm.irc.storage.StorageRepository;
 import io.mrarm.irc.storage.db.MessageLogEntity;
@@ -44,7 +45,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
     public static final int TYPE_CONFIGURATION_SUMMARY = 2;
 
     private List<ServerLogsEntry> mServerLogEntries = new ArrayList<>();
-    private SpaceCalculateTask mAsyncTask = null;
+    private Future<?> mAsyncTask;
     private long mConfigurationSize = 0L;
     private int mSecondaryTextColor;
     private final StorageRepository mStorageRepository;
@@ -57,11 +58,40 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
     }
 
     void refreshServerLogs(Context context) {
-        if (mAsyncTask != null)
-            return;
-        mServerLogEntries.clear();
-        mAsyncTask = new SpaceCalculateTask(context, this);
-        mAsyncTask.execute();
+        // 1) stop any running calc (fresh state)
+        if (mAsyncTask != null && !mAsyncTask.isDone()) {
+            mAsyncTask.cancel(true);
+            mAsyncTask = null;
+        }
+
+        // 2) clear current entries and force "Total" (row 0) to 0 now
+        int count = mServerLogEntries.size();
+        if (count > 0) {
+            mServerLogEntries.clear();
+            // remove all server rows (they start at index 1)
+            notifyItemRangeRemoved(/* from */ 1, /* count */ count);
+        }
+        // rebind the summary row so it recomputes 0 immediately
+        notifyItemChanged(0);
+
+        // 3) start fresh calculation
+        mAsyncTask = CalculateStorageJob.run(context, new CalculateStorageJob.Callback() {
+            @Override
+            public void onConfigSize(long size) {
+                mConfigurationSize = size;
+                notifyItemChanged(getItemCount() - 1);
+            }
+
+            @Override
+            public void onServerLogsEntry(ServerLogsEntry entry) {
+                addEntry(entry);
+            }
+
+            @Override
+            public void onCompleted() {
+                mAsyncTask = null;
+            }
+        });
     }
 
     private void addEntry(ServerLogsEntry entry) {
@@ -191,8 +221,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
 
     }
 
-    private static class ServerLogsEntry {
-
+    public static class ServerLogsEntry {
         String name;
         UUID uuid;
         long size;
@@ -202,7 +231,6 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
             this.uuid = uuid;
             this.size = size;
         }
-
     }
 
     public class ServerLogsHolder extends RecyclerView.ViewHolder {
@@ -323,113 +351,24 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
 
     }
 
-
-    private static class SpaceCalculateTask extends AsyncTask<Void, Object, Void> {
-
-        private WeakReference<StorageSettingsAdapter> mAdapter;
-        private ServerConfigManager mServerManager;
-        private StorageRepository mStorageRepository;
-        private File mDataDir;
-        private StatFs mStatFs;
-
-        public SpaceCalculateTask(Context context, StorageSettingsAdapter adapter) {
-            mServerManager = ServerConfigManager.getInstance(context);
-            mStorageRepository = StorageRepository.getInstance(context);
-            mDataDir = new File(context.getApplicationInfo().dataDir);
-            mAdapter = new WeakReference<>(adapter);
-        }
-
-        @Override
-        protected Void doInBackground(Void... voids) {
-            long dataBlockSize = getBlockSize(mDataDir);
-            long dataSize = 0L;
-            for (File file : mDataDir.listFiles()) {
-                if (file.getName().equals("cache") || file.getName().equals("lib"))
-                    continue;
-                dataSize += calculateDirectorySize(file, dataBlockSize);
-            }
-            publishProgress(dataSize);
-            List<File> processedDirs = new ArrayList<>();
-            for (ServerConfigData data : mServerManager.getServers()) {
-                if (mAdapter.get() == null)
-                    return null;
-                File file = mStorageRepository.getServerChatLogDir(data.uuid);
-                processedDirs.add(file);
-                if (!file.exists())
-                    continue;
-                long size = calculateDirectorySize(file, getBlockSize(file));
-                if (size == 0L)
-                    continue;
-                publishProgress(new ServerLogsEntry(data.name, data.uuid, size));
-            }
-            File[] files = mStorageRepository.getChatLogDir().listFiles();
-            if (files != null) {
-                for (File file : files) {
-                    if (processedDirs.contains(file))
-                        continue;
-                    long size = calculateDirectorySize(file, getBlockSize(file));
-                    if (size == 0L)
-                        continue;
-                    UUID uuid = null;
-                    try {
-                        uuid = UUID.fromString(file.getName());
-                    } catch (IllegalArgumentException ignored) {
-                    }
-                    publishProgress(new ServerLogsEntry(file.getName(), uuid, size));
-                }
-            }
-            return null;
-        }
-
-        @Override
-        protected void onPostExecute(Void aVoid) {
-            StorageSettingsAdapter adapter = mAdapter.get();
-            if (adapter != null)
-                adapter.mAsyncTask = null;
-        }
-
-        private long getBlockSize(File file) {
-            if (mStatFs != null)
-                mStatFs.restat(file.getAbsolutePath());
-            else
-                mStatFs = new StatFs(file.getAbsolutePath());
-            if (Build.VERSION.SDK_INT >= 18)
-                return mStatFs.getBlockSizeLong();
-            else
-                return mStatFs.getBlockSize();
-        }
-
-        private long calculateDirectorySize(File file, long blockSize) {
-            File[] files = file.listFiles();
-            if (files == null)
-                return 0L;
-            long ret = blockSize;
-            for (File subfile : files) {
-                if (subfile.isDirectory())
-                    ret += calculateDirectorySize(subfile, blockSize);
-                else
-                    ret += (subfile.length() + blockSize - 1) / blockSize * blockSize;
-            }
-            return ret;
-        }
-
-        @Override
-        protected void onProgressUpdate(Object... values) {
-            StorageSettingsAdapter adapter = mAdapter.get();
-            if (adapter == null)
-                return;
-            for (Object value : values) {
-                if (value instanceof ServerLogsEntry) {
-                    adapter.addEntry((ServerLogsEntry) value);
-                } else if (value instanceof Long) {
-                    adapter.mConfigurationSize = (Long) value;
-                    adapter.notifyItemChanged(adapter.getItemCount() - 1);
-                }
-            }
-        }
-
+    private long getBlockSize(StatFs statFs, File file) {
+        statFs.restat(file.getAbsolutePath());
+        return statFs.getBlockSizeLong();
     }
 
+    private long calculateDirectorySize(File file, long blockSize) {
+        File[] files = file.listFiles();
+        if (files == null) return 0L;
+
+        long ret = blockSize;
+        for (File f : files) {
+            if (f.isDirectory())
+                ret += calculateDirectorySize(f, blockSize);
+            else
+                ret += (f.length() + blockSize - 1) / blockSize * blockSize;
+        }
+        return ret;
+    }
 
     private class FetchRecentLogsTask extends AsyncTask<Void, Void, List<MessageLogEntity>> {
 
