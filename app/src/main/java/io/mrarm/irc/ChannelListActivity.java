@@ -1,13 +1,7 @@
 package io.mrarm.irc;
 
-import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
-import androidx.recyclerview.widget.DividerItemDecoration;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
-import androidx.appcompat.widget.SearchView;
-import androidx.appcompat.widget.Toolbar;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -16,13 +10,20 @@ import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.TextView;
 
-import java.lang.ref.WeakReference;
+import androidx.appcompat.widget.SearchView;
+import androidx.appcompat.widget.Toolbar;
+import androidx.recyclerview.widget.DiffUtil;
+import androidx.recyclerview.widget.DividerItemDecoration;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import io.mrarm.chatlib.dto.ChannelList;
+import io.mrarm.irc.util.Async;
 import io.mrarm.irc.view.RecyclerViewScrollbar;
 
 public class ChannelListActivity extends ThemedActivity {
@@ -37,12 +38,14 @@ public class ChannelListActivity extends ThemedActivity {
     private View mMainAppBar;
     private View mSearchAppBar;
     private SearchView mSearchView;
+    private RecyclerView mList;
     private ListAdapter mListAdapter;
 
     private String mFilterQuery;
     private int mSortMode = SORT_NAME;
 
-    private UpdateListAsyncTask mUpdateListAsyncTask;
+    private boolean mIsUpdatingList;
+    private boolean mShouldUpdateList;
 
     private List<ChannelList.Entry> mEntries = new ArrayList<>();
     private List<ChannelList.Entry> mFilteredEntries = new ArrayList<>();
@@ -67,6 +70,7 @@ public class ChannelListActivity extends ThemedActivity {
         mMainAppBar = findViewById(R.id.appbar);
         mSearchAppBar = findViewById(R.id.search_appbar);
         mSearchView = findViewById(R.id.search_view);
+        mList = findViewById(R.id.list);
 
         UUID serverUUID = UUID.fromString(getIntent().getStringExtra(ARG_SERVER_UUID));
         mConnection = ServerConnectionManager.getInstance(this).getConnection(serverUUID);
@@ -111,10 +115,89 @@ public class ChannelListActivity extends ThemedActivity {
     }
 
     private void requestListUpdate() {
-        if (mUpdateListAsyncTask == null) {
-            mUpdateListAsyncTask = new UpdateListAsyncTask(this);
-            mUpdateListAsyncTask.execute();
+        if (mIsUpdatingList) {
+            mShouldUpdateList = true;
+            return;
         }
+        mIsUpdatingList = true;
+
+        final String startFilterQuery = mFilterQuery;
+        final int startSortMode = mSortMode;
+
+        Async.io(() -> {
+            synchronized (mAppendEntries) {
+                mEntries.addAll(mAppendEntries);
+                mAppendEntries.clear();
+                if (mAssignEntries != null) {
+                    mEntries = mAssignEntries;
+                    mAssignEntries = null;
+                }
+            }
+
+            List<ChannelList.Entry> ret = new ArrayList<>();
+            for (ChannelList.Entry entry : mEntries) {
+                if (filterEntry(entry, startFilterQuery))
+                    ret.add(entry);
+            }
+            if (startSortMode == SORT_NAME) {
+                ret.sort((ChannelList.Entry l, ChannelList.Entry r) ->
+                        l.getChannel().compareToIgnoreCase(r.getChannel()));
+            } else if (startSortMode == SORT_MEMBER_COUNT) {
+                ret.sort((ChannelList.Entry l, ChannelList.Entry r) ->
+                        Integer.compare(r.getMemberCount(), l.getMemberCount()));
+            }
+            return ret;
+
+        }, (List<ChannelList.Entry> ret) -> {
+            if (ret != null) {
+                DiffUtil.DiffResult diff = DiffUtil.calculateDiff(new DiffUtil.Callback() {
+                    @Override
+                    public int getOldListSize() {
+                        return mFilteredEntries.size();
+                    }
+
+                    @Override
+                    public int getNewListSize() {
+                        return ret.size();
+                    }
+
+                    @Override
+                    public boolean areItemsTheSame(int oldPos, int newPos) {
+                        return mFilteredEntries.get(oldPos).getChannel()
+                                .equals(ret.get(newPos).getChannel());
+                    }
+
+                    @Override
+                    public boolean areContentsTheSame(int oldPos, int newPos) {
+                        return mFilteredEntries.get(oldPos).equals(ret.get(newPos));
+                    }
+                });
+
+                mFilteredEntries = ret;
+                diff.dispatchUpdatesTo(mListAdapter);
+            }
+
+            mIsUpdatingList = false;
+
+            boolean filterChanged = !Objects.equals(startFilterQuery, mFilterQuery);
+            boolean sortChanged = startSortMode != mSortMode;
+            boolean shouldUpdate = mShouldUpdateList || filterChanged || sortChanged;
+
+
+            mShouldUpdateList = false;
+
+            if (!shouldUpdate) {
+                synchronized (mAppendEntries) {
+                    if (!mAppendEntries.isEmpty())
+                        shouldUpdate = true;
+                }
+            }
+
+            mList.scrollToPosition(0);
+
+            if (shouldUpdate)
+                requestListUpdate();
+        });
     }
 
     @Override
@@ -245,64 +328,4 @@ public class ChannelListActivity extends ThemedActivity {
         }
 
     }
-
-    private static class UpdateListAsyncTask extends AsyncTask<Void, Void, List<ChannelList.Entry>> {
-
-        private WeakReference<ChannelListActivity> mActivity;
-        private String mStartFilterQuery;
-        private int mStartSortMode;
-
-        public UpdateListAsyncTask(ChannelListActivity activity) {
-            mActivity = new WeakReference<>(activity);
-            mStartFilterQuery = activity.mFilterQuery;
-            mStartSortMode = activity.mSortMode;
-        }
-
-        @Override
-        protected List<ChannelList.Entry> doInBackground(Void... voids) {
-            ChannelListActivity activity = mActivity.get();
-            if (activity == null)
-                return null;
-            synchronized (activity.mAppendEntries) {
-                activity.mEntries.addAll(activity.mAppendEntries);
-                activity.mAppendEntries.clear();
-                if (activity.mAssignEntries != null) {
-                    activity.mEntries = activity.mAssignEntries;
-                    activity.mAssignEntries = null;
-                }
-            }
-            List<ChannelList.Entry> ret = new ArrayList<>();
-            for (ChannelList.Entry entry : activity.mEntries) {
-                if (filterEntry(entry, mStartFilterQuery))
-                    ret.add(entry);
-            }
-            if (mStartSortMode == SORT_NAME) {
-                Collections.sort(ret, (ChannelList.Entry l, ChannelList.Entry r) ->
-                        l.getChannel().compareToIgnoreCase(r.getChannel()));
-            } else if (mStartSortMode == SORT_MEMBER_COUNT) {
-                Collections.sort(ret, (ChannelList.Entry l, ChannelList.Entry r) ->
-                        Integer.compare(r.getMemberCount(), l.getMemberCount()));
-            }
-            return ret;
-        }
-
-        @Override
-        protected void onPostExecute(List<ChannelList.Entry> ret) {
-            ChannelListActivity activity = mActivity.get();
-            if (activity == null || ret == null)
-                return;
-            activity.mFilteredEntries = ret;
-            activity.mListAdapter.notifyDataSetChanged();
-            activity.mUpdateListAsyncTask = null;
-            if ((mStartFilterQuery != null && !mStartFilterQuery.equals(activity.mFilterQuery)) ||
-                    mStartSortMode != activity.mSortMode) {
-                activity.requestListUpdate();
-            }
-            synchronized (activity.mAppendEntries) {
-                if (activity.mAppendEntries.size() > 0)
-                    activity.requestListUpdate();
-            }
-        }
-    }
-
 }

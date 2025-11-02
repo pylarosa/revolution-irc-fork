@@ -11,8 +11,9 @@ android {
     compileSdkVersion 35
     defaultConfig {
         applicationId "io.mrarm.irc.dev"
-        minSdkVersion 21
+        minSdkVersion 24
         targetSdkVersion 35
+        compileSdkVersion 35
         versionCode 13
         versionName "0.5.5"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -38,6 +39,7 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+
     buildTypes {
         release {
             minifyEnabled true
