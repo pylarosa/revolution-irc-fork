@@ -2,13 +2,12 @@ package io.mrarm.irc.util.theme;
 
 import android.app.Activity;
 import android.content.Context;
-
-import androidx.appcompat.app.AppCompatDelegate;
-
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.util.DisplayMetrics;
 import android.util.Log;
+
+import androidx.appcompat.app.AppCompatDelegate;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -278,7 +277,7 @@ public class ThemeManager {
             mNeedsApplyIrcColors = false;
         }
         if (currentCustomThemePatcher != null) {
-            currentCustomThemePatcher.applyToActivity(activity);
+//            currentCustomThemePatcher.applyToActivity(activity);
         }
         if (isThemeDark)
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
