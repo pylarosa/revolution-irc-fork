@@ -1,7 +1,7 @@
 package io.mrarm.irc;
 
-import android.os.Build;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -11,14 +11,21 @@ import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.widget.SearchView;
 import androidx.appcompat.widget.Toolbar;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.recyclerview.widget.SortedList;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
 
@@ -46,9 +53,10 @@ public class ChannelListActivity extends ThemedActivity {
     private String mFilterQuery;
     private int mSortMode = SORT_NAME;
 
-    private final Object mLock = new Object();
+    private SortedList<DisplayEntry> mSortedEntries;
 
-    private SortedList<ChannelList.Entry> mSortedEntries;
+    private final LinkedHashMap<String, DisplayEntry> mAllEntries = new LinkedHashMap<>();
+    private long mNextSequence = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,7 +65,10 @@ public class ChannelListActivity extends ThemedActivity {
 
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar != null)
+            actionBar.setDisplayHomeAsUpEnabled(true);
 
         Toolbar searchToolbar = findViewById(R.id.search_toolbar);
         searchToolbar.setNavigationOnClickListener(v -> setSearchMode(false));
@@ -71,11 +82,10 @@ public class ChannelListActivity extends ThemedActivity {
         UUID serverUUID = UUID.fromString(getIntent().getStringExtra(ARG_SERVER_UUID));
         mConnection = ServerConnectionManager.getInstance(this).getConnection(serverUUID);
 
-        RecyclerView recyclerView = findViewById(R.id.list);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+        mList.setLayoutManager(new LinearLayoutManager(this));
         mListAdapter = new ListAdapter();
-        recyclerView.setAdapter(mListAdapter);
-        recyclerView.addItemDecoration(new DividerItemDecoration(this, DividerItemDecoration.VERTICAL));
+        mList.setAdapter(mListAdapter);
+        mList.addItemDecoration(new DividerItemDecoration(this, DividerItemDecoration.VERTICAL));
 
         setupSortedList();
 
@@ -96,30 +106,50 @@ public class ChannelListActivity extends ThemedActivity {
         showProgress(true);
         mConnection.getApiInstance().listChannels(list -> {
             Log.d("ChannelList", "Received full list of " + list.getEntries().size() + " channels");
-            Async.io(() -> addChannels(list.getEntries()), () -> showProgress(false));
+            Async.ui(() -> addChannels(list.getEntries(), () -> showProgress(false)));
         }, entry -> {
             // Called per new entry during live fetching
             if (entry != null) {
                 mList.post(() -> {
                     mSortedEntries.beginBatchedUpdates();
-                    if (filterEntry(entry, mFilterQuery)) {
-                        mSortedEntries.add(entry);
-                    }
+                    addOrUpdateEntryInternal(entry);
                     mSortedEntries.endBatchedUpdates();
                 });
             }
         }, null);
+
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (mSearchAppBar.getVisibility() == View.VISIBLE) {
+                    setSearchMode(false);
+                } else {
+                    setEnabled(false);
+                    getOnBackPressedDispatcher().onBackPressed();
+                }
+            }
+        });
     }
 
+    private Comparator<DisplayEntry> mCurrentComparator = BY_NAME;
+
+    private static final Comparator<DisplayEntry> BY_NAME = (a, b) -> {
+        String an = a.entry.getChannel() == null ? "" : a.entry.getChannel();
+        String bn = b.entry.getChannel() == null ? "" : b.entry.getChannel();
+        return an.compareToIgnoreCase(bn);
+    };
+
+    private static final Comparator<DisplayEntry> BY_MEMBERS = (a, b) -> {
+        int r = Integer.compare(b.entry.getMemberCount(), a.entry.getMemberCount());
+        if (r != 0) return r;
+        return BY_NAME.compare(a, b);
+    };
+
     private void setupSortedList() {
-        mSortedEntries = new SortedList<>(ChannelList.Entry.class, new SortedList.Callback<ChannelList.Entry>() {
+        mSortedEntries = new SortedList<>(DisplayEntry.class, new SortedList.Callback<>() {
             @Override
-            public int compare(ChannelList.Entry a, ChannelList.Entry b) {
-                if (mSortMode == SORT_MEMBER_COUNT)
-                    return Integer.compare(b.getMemberCount(), a.getMemberCount());
-                if (mSortMode == SORT_NAME)
-                    return a.getChannel().compareToIgnoreCase(b.getChannel());
-                return 0; // Unsorted: preserve insertion order
+            public int compare(DisplayEntry a, DisplayEntry b) {
+                return mCurrentComparator.compare(a, b);
             }
 
             @Override
@@ -145,13 +175,19 @@ public class ChannelListActivity extends ThemedActivity {
             }
 
             @Override
-            public boolean areContentsTheSame(ChannelList.Entry oldItem, ChannelList.Entry newItem) {
-                return oldItem.equals(newItem);
+            public boolean areContentsTheSame(DisplayEntry oldItem, DisplayEntry newItem) {
+                ChannelList.Entry oldEntry = oldItem.entry;
+                ChannelList.Entry newEntry = newItem.entry;
+                String oldTopic = oldEntry.getTopic() == null ? "" : oldEntry.getTopic();
+                String newTopic = newEntry.getTopic() == null ? "" : newEntry.getTopic();
+                return oldEntry.getMemberCount() == newEntry.getMemberCount()
+                        && oldEntry.getChannel().equals(newEntry.getChannel())
+                        && oldTopic.equals(newTopic);
             }
 
             @Override
-            public boolean areItemsTheSame(ChannelList.Entry oldItem, ChannelList.Entry newItem) {
-                return oldItem.getChannel().equals(newItem.getChannel());
+            public boolean areItemsTheSame(DisplayEntry oldItem, DisplayEntry newItem) {
+                return oldItem.entry.getChannel().equals(newItem.entry.getChannel());
             }
         });
     }
@@ -166,15 +202,13 @@ public class ChannelListActivity extends ThemedActivity {
     /**
      * Called by Async background job once the full list arrives
      */
-    private void addChannels(List<ChannelList.Entry> entries) {
-        runOnUiThread(() -> mList.post(() -> {
-            mSortedEntries.beginBatchedUpdates();
-            for (ChannelList.Entry e : entries) {
-                if (filterEntry(e, mFilterQuery))
-                    mSortedEntries.add(e);
-            }
-            mSortedEntries.endBatchedUpdates();
-        }));
+    private void addChannels(List<ChannelList.Entry> entries, Runnable onComplete) {
+        if (entries == null || entries.isEmpty()) {
+            if (onComplete != null)
+                runOnUiThread(onComplete);
+            return;
+        }
+        runOnUiThread(() -> scheduleBatchAdd(entries.iterator(), onComplete));
     }
 
     /**
@@ -182,21 +216,8 @@ public class ChannelListActivity extends ThemedActivity {
      */
     private void refreshFilteredEntries() {
         showProgress(true);
-        Async.io(() -> {
-            List<ChannelList.Entry> all = new ArrayList<>();
-            for (int i = 0; i < mSortedEntries.size(); i++) {
-                all.add(mSortedEntries.get(i));
-            }
-            return all;
-        }, list -> {
-            mList.post(() -> {
-                mSortedEntries.beginBatchedUpdates();
-                mSortedEntries.clear();
-                for (ChannelList.Entry e : list)
-                    if (filterEntry(e, mFilterQuery))
-                        mSortedEntries.add(e);
-                mSortedEntries.endBatchedUpdates();
-            });
+        mList.post(() -> {
+            rebuildVisibleEntries();
             showProgress(false);
         });
     }
@@ -226,71 +247,62 @@ public class ChannelListActivity extends ThemedActivity {
             return true;
         } else if (id == R.id.action_sort_none || id == R.id.action_sort_name || id == R.id.action_sort_member_count) {
             if (id == R.id.action_sort_name)
-                mSortMode = SORT_NAME;
+                setSortMode(SORT_NAME);
             else if (id == R.id.action_sort_member_count)
-                mSortMode = SORT_MEMBER_COUNT;
+                setSortMode(SORT_MEMBER_COUNT);
             else
-                mSortMode = SORT_UNSORTED;
+                setSortMode(SORT_UNSORTED);
 
             Log.d("ChannelList", "Sort mode changed → " + mSortMode);
 
-            // 🛠️ Safe rebuild
-            List<ChannelList.Entry> temp = new ArrayList<>();
-            for (int i = 0; i < mSortedEntries.size(); i++)
-                temp.add(mSortedEntries.get(i));
-
-            // Temporarily detach adapter to avoid layout inconsistency
-            mList.setAdapter(null);
-
-            // Recreate the sorted list with new comparator
-            setupSortedList();
-
-            // Reattach adapter to new data source
-            mList.setAdapter(mListAdapter);
-
-            // Now repopulate safely
-            mList.post(() -> {
-                mSortedEntries.beginBatchedUpdates();
-                for (ChannelList.Entry e : temp)
-                    if (filterEntry(e, mFilterQuery))
-                        mSortedEntries.add(e);
-                mSortedEntries.endBatchedUpdates();
-            });
-
+            resortVisibleEntries();
             return true;
         }
         return super.onOptionsItemSelected(item);
     }
 
-    @Override
-    public void onBackPressed() {
-        if (mSearchAppBar.getVisibility() == View.VISIBLE) {
-            setSearchMode(false);
-            return;
-        }
-        super.onBackPressed();
+    void setSortMode(int mode) {
+        if (mode == mSortMode) return;
+        mSortMode = mode;
+        mCurrentComparator = switch (mode) {
+            case SORT_MEMBER_COUNT -> BY_MEMBERS;
+            case SORT_NAME -> BY_NAME;
+            default -> Comparator.comparingLong((DisplayEntry a) -> a.sequence);
+        };
+
+        mList.post(() -> {
+            mSortedEntries.beginBatchedUpdates();
+            for (int i = mSortedEntries.size() - 1; i >= 0; i--)
+                mSortedEntries.recalculatePositionOfItemAt(i);
+            mSortedEntries.endBatchedUpdates();
+            mList.scrollToPosition(0);
+        });
     }
 
     public void setSearchMode(boolean searchMode) {
         mMainAppBar.setVisibility(searchMode ? View.GONE : View.VISIBLE);
         mSearchAppBar.setVisibility(searchMode ? View.VISIBLE : View.GONE);
 
-        if (Build.VERSION.SDK_INT >= 21) {
-            getWindow().setStatusBarColor(getResources().getColor(
-                    searchMode ? R.color.searchColorPrimaryDark : R.color.colorPrimaryDark));
-        }
+        int color = ContextCompat.getColor(this,
+                searchMode ? R.color.searchColorPrimaryDark : R.color.colorPrimaryDark
+        );
+
+        getWindow().setStatusBarColor(color);
+
         View decorView = getWindow().getDecorView();
-        if (Build.VERSION.SDK_INT >= 23) {
-            if (searchMode)
-                decorView.setSystemUiVisibility(decorView.getSystemUiVisibility() | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
-            else
-                decorView.setSystemUiVisibility(decorView.getSystemUiVisibility() & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
-        }
+        if (searchMode)
+            decorView.setSystemUiVisibility(
+                    decorView.getSystemUiVisibility() | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+        else
+            decorView.setSystemUiVisibility(
+                    decorView.getSystemUiVisibility() & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+
         if (!searchMode) {
             mFilterQuery = null;
             refreshFilteredEntries();
         }
     }
+
 
     // ------------------------------------------------------------
     // Adapter + ViewHolder
@@ -299,6 +311,7 @@ public class ChannelListActivity extends ThemedActivity {
             implements RecyclerViewScrollbar.LetterAdapter {
 
         @Override
+        @NonNull
         public ListEntry onCreateViewHolder(ViewGroup parent, int viewType) {
             View view = LayoutInflater.from(parent.getContext())
                     .inflate(R.layout.channel_list_item, parent, false);
@@ -306,20 +319,24 @@ public class ChannelListActivity extends ThemedActivity {
         }
 
         @Override
-        public void onBindViewHolder(ListEntry holder, int position) {
-            holder.bind(mSortedEntries.get(position));
+        public void onBindViewHolder(@NonNull ListEntry holder, int position) {
+            if (mSortedEntries == null)
+                return;
+            holder.bind(mSortedEntries.get(position).entry);
         }
 
         @Override
         public String getLetterFor(int position) {
             if (mSortMode != SORT_NAME) return null;
-            String channel = mSortedEntries.get(position).getChannel();
+            if (mSortedEntries == null || position < 0 || position >= mSortedEntries.size())
+                return null;
+            String channel = mSortedEntries.get(position).entry.getChannel();
             return channel.length() >= 2 ? channel.substring(1, 2).toUpperCase() : "?";
         }
 
         @Override
         public int getItemCount() {
-            return mSortedEntries.size();
+            return mSortedEntries != null ? mSortedEntries.size() : 0;
         }
     }
 
@@ -349,8 +366,81 @@ public class ChannelListActivity extends ThemedActivity {
                     entry.getChannel(), entry.getMemberCount()));
             mName.setTag(entry.getChannel());
             mTopic.setText(entry.getTopic().trim());
-            mTopic.setVisibility(mTopic.getText().length() > 0 ? View.VISIBLE : View.GONE);
+            mTopic.setVisibility(!TextUtils.isEmpty(mTopic.getText()) ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    private void scheduleBatchAdd(Iterator<ChannelList.Entry> iterator, Runnable onComplete) {
+        if (iterator == null)
+            return;
+        mList.post(new Runnable() {
+            @Override
+            public void run() {
+                int processed = 0;
+                mSortedEntries.beginBatchedUpdates();
+                while (iterator.hasNext() && processed < 200) {
+                    ChannelList.Entry next = iterator.next();
+                    addOrUpdateEntryInternal(next);
+                    processed++;
+                }
+                mSortedEntries.endBatchedUpdates();
+                if (iterator.hasNext()) {
+                    mList.post(this);
+                } else if (onComplete != null) {
+                    onComplete.run();
+                }
+            }
+        });
+    }
+
+    private void rebuildVisibleEntries() {
+        List<DisplayEntry> filtered = new ArrayList<>();
+        for (DisplayEntry entry : mAllEntries.values()) {
+            if (filterEntry(entry.entry, mFilterQuery))
+                filtered.add(entry);
+        }
+        mSortedEntries.beginBatchedUpdates();
+        mSortedEntries.clear();
+        for (DisplayEntry entry : filtered)
+            mSortedEntries.add(entry);
+        mSortedEntries.endBatchedUpdates();
+    }
+
+    private void resortVisibleEntries() {
+        mList.post(() -> {
+            mSortedEntries.beginBatchedUpdates();
+            for (int i = mSortedEntries.size() - 1; i >= 0; i--)
+                mSortedEntries.recalculatePositionOfItemAt(i);
+            mSortedEntries.endBatchedUpdates();
+        });
+    }
+
+    private void addOrUpdateEntryInternal(ChannelList.Entry entry) {
+        DisplayEntry previous = mAllEntries.get(entry.getChannel());
+        DisplayEntry updated;
+        if (previous == null) {
+            updated = new DisplayEntry(entry, mNextSequence++);
+        } else {
+            updated = previous.withEntry(entry);
+        }
+        mAllEntries.put(entry.getChannel(), updated);
+
+        boolean passesFilter = filterEntry(updated.entry, mFilterQuery);
+        if (!passesFilter) {
+            if (previous != null) {
+                int index = mSortedEntries.indexOf(previous);
+                if (index != SortedList.INVALID_POSITION)
+                    mSortedEntries.removeItemAt(index);
+            }
+            return;
+        }
+        mSortedEntries.add(updated);
+    }
+
+    private record DisplayEntry(ChannelList.Entry entry, long sequence) {
+
+        DisplayEntry withEntry(ChannelList.Entry newEntry) {
+            return new DisplayEntry(newEntry, sequence);
         }
     }
 }
-
