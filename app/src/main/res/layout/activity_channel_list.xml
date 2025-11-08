@@ -21,6 +21,17 @@
             android:background="?attr/colorPrimary"
             app:popupTheme="@style/AppTheme.PopupOverlay" />
 
+        <!-- Loading progress bar just under the toolbar -->
+        <io.mrarm.irc.view.ProgressBar
+            android:id="@+id/progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="2dp"
+            android:indeterminate="true"
+            android:visibility="gone"
+            android:layout_marginTop="0dp"
+            android:layout_marginBottom="0dp"
+            android:progressTint="@color/colorAccent" />
     </com.google.android.material.appbar.AppBarLayout>
 
     <com.google.android.material.appbar.AppBarLayout
@@ -49,9 +60,7 @@
                 app:queryBackground="@android:color/transparent"
                 app:searchHintIcon="@null"
                 app:searchIcon="@null" />
-
         </androidx.appcompat.widget.Toolbar>
-
     </com.google.android.material.appbar.AppBarLayout>
 
     <io.mrarm.irc.view.RecyclerViewScrollbarLayout
@@ -69,7 +78,6 @@
             android:id="@+id/scrollbar"
             android:layout_width="wrap_content"
             android:layout_height="match_parent" />
-
     </io.mrarm.irc.view.RecyclerViewScrollbarLayout>
 
 </io.mrarm.irc.view.OpaqueStatusBarRelativeLayout>
