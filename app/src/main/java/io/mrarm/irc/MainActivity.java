@@ -19,6 +19,7 @@ import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -148,6 +149,17 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
             return;
 
         handleIntent(getIntent());
+
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (mBackReturnToServerList) {
+                    openManageServers();
+                } else {
+                    finish();
+                }
+            }
+        });
     }
 
     private void handleIntent(Intent intent) {
