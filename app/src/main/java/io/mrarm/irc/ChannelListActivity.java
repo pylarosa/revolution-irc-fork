@@ -8,6 +8,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.TextView;
 
@@ -17,6 +18,7 @@ import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.widget.SearchView;
 import androidx.appcompat.widget.Toolbar;
 import androidx.core.content.ContextCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -287,15 +289,13 @@ public class ChannelListActivity extends ThemedActivity {
                 searchMode ? R.color.searchColorPrimaryDark : R.color.colorPrimaryDark
         );
 
-        getWindow().setStatusBarColor(color);
+        Window window = getWindow();
+        window.setStatusBarColor(color);
 
-        View decorView = getWindow().getDecorView();
-        if (searchMode)
-            decorView.setSystemUiVisibility(
-                    decorView.getSystemUiVisibility() | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
-        else
-            decorView.setSystemUiVisibility(
-                    decorView.getSystemUiVisibility() & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+        WindowInsetsControllerCompat controller =
+                new WindowInsetsControllerCompat(window, window.getDecorView());
+
+        controller.setAppearanceLightStatusBars(searchMode);
 
         if (!searchMode) {
             mFilterQuery = null;
