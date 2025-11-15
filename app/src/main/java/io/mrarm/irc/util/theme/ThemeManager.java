@@ -6,6 +6,8 @@ import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.util.DisplayMetrics;
 import android.util.Log;
+import android.util.TypedValue;
+import android.view.ContextThemeWrapper;
 
 import androidx.appcompat.app.AppCompatDelegate;
 
@@ -288,12 +290,30 @@ public class ThemeManager {
     public int getThemeIdToApply(int appThemeId) {
         if (currentTheme == null)
             return appThemeId;
-        if (appThemeId == R.style.AppTheme_NoActionBar)
-            return currentTheme.getThemeNoActionBarResId();
-        else if (appThemeId == R.style.AppTheme)
-            return currentTheme.getThemeResId();
-        else
-            return appThemeId;
+
+        int mid = (appThemeId == R.style.AppTheme_NoActionBar)
+                ? currentTheme.getThemeNoActionBarResId()
+                : (appThemeId == R.style.AppTheme)
+                ? currentTheme.getThemeResId()
+                : appThemeId;
+
+        // Validate theme BEFORE returning
+        if (!isAppCompatTheme(mid)) {
+            return appThemeId;  // fallback
+        }
+
+        return mid;
+    }
+
+    private boolean isAppCompatTheme(int themeId) {
+        TypedValue tv = new TypedValue();
+        ContextThemeWrapper ctx = new ContextThemeWrapper(context, themeId);
+
+        // ActionBar / Toolbar attributes must resolve.
+        boolean hasPrimary = ctx.getTheme().resolveAttribute(R.attr.colorPrimary, tv, true);
+        boolean hasActionBar = ctx.getTheme().resolveAttribute(R.attr.windowActionBar, tv, true);
+
+        return hasPrimary && hasActionBar;
     }
 
 
