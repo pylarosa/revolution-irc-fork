@@ -369,7 +369,10 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
     private MessageStorageRepository getRoomRepository() {
         if (mConnection == null)
             return null;
-        return mConnection.getApiInstance().getServerConnectionData().getMessageStorageRepository();
+        if (!(mConnection.getApiInstance() instanceof ServerConnectionApi))
+            return null;
+        return ((ServerConnectionApi) mConnection.getApiInstance())
+                .getServerConnectionData().getMessageStorageRepository();
     }
 
     private UUID getServerUUID() {
