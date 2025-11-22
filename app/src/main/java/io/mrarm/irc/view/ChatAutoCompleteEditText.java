@@ -3,8 +3,6 @@ package io.mrarm.irc.view;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.res.Resources;
-import com.google.android.material.bottomsheet.BottomSheetBehavior;
-import androidx.recyclerview.widget.RecyclerView;
 import android.text.Editable;
 import android.util.AttributeSet;
 import android.view.GestureDetector;
@@ -13,16 +11,20 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Filter;
 
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
+
 import java.util.ArrayList;
 import java.util.List;
 
-import io.mrarm.chatlib.dto.ModeList;
-import io.mrarm.chatlib.dto.NickWithPrefix;
-import io.mrarm.chatlib.irc.ServerConnectionApi;
-import io.mrarm.chatlib.irc.ServerConnectionData;
 import io.mrarm.irc.ServerConnectionInfo;
 import io.mrarm.irc.chat.ChatSuggestionsAdapter;
 import io.mrarm.irc.chat.CommandListSuggestionsAdapter;
+import io.mrarm.irc.chatlib.dto.ModeList;
+import io.mrarm.irc.chatlib.dto.NickWithPrefix;
+import io.mrarm.irc.chatlib.irc.ServerConnectionApi;
+import io.mrarm.irc.chatlib.irc.ServerConnectionData;
 import io.mrarm.irc.config.ChatSettings;
 import io.mrarm.irc.config.CommandAliasManager;
 import io.mrarm.irc.config.NickAutocompleteSettings;

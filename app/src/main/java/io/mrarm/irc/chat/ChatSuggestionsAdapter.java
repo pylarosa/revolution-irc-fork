@@ -11,11 +11,11 @@ import android.widget.TextView;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.mrarm.chatlib.dto.ModeList;
-import io.mrarm.chatlib.dto.NickWithPrefix;
-import io.mrarm.chatlib.irc.ServerConnectionApi;
 import io.mrarm.irc.R;
 import io.mrarm.irc.ServerConnectionInfo;
+import io.mrarm.irc.chatlib.dto.ModeList;
+import io.mrarm.irc.chatlib.dto.NickWithPrefix;
+import io.mrarm.irc.chatlib.irc.ServerConnectionApi;
 import io.mrarm.irc.util.SelectableRecyclerViewAdapter;
 
 public class ChatSuggestionsAdapter extends SelectableRecyclerViewAdapter<ChatSuggestionsAdapter.ItemHolder> implements Filterable {

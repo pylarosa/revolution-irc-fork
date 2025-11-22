@@ -17,9 +17,9 @@ import androidx.annotation.Keep
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
-import io.mrarm.chatlib.dto.MessageId
-import io.mrarm.chatlib.dto.MessageInfo
-import io.mrarm.chatlib.message.MessageListener
+import io.mrarm.irc.chatlib.dto.MessageId
+import io.mrarm.irc.chatlib.dto.MessageInfo
+import io.mrarm.irc.chatlib.message.MessageListener
 import io.mrarm.irc.job.ServerPingScheduler
 import io.mrarm.irc.util.WarningHelper
 import kotlinx.coroutines.launch

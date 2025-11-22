@@ -17,10 +17,10 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
-import io.mrarm.chatlib.ChatApi;
-import io.mrarm.chatlib.dto.MessageId;
-import io.mrarm.chatlib.dto.MessageInfo;
-import io.mrarm.chatlib.irc.ServerConnectionApi;
+import io.mrarm.irc.chatlib.ChatApi;
+import io.mrarm.irc.chatlib.dto.MessageId;
+import io.mrarm.irc.chatlib.dto.MessageInfo;
+import io.mrarm.irc.chatlib.irc.ServerConnectionApi;
 import io.mrarm.irc.config.NotificationRule;
 import io.mrarm.irc.config.NotificationRuleManager;
 import io.mrarm.irc.util.WarningHelper;

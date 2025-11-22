@@ -42,13 +42,13 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
-import io.mrarm.chatlib.ChatApi;
-import io.mrarm.chatlib.dto.NickWithPrefix;
-import io.mrarm.chatlib.irc.ServerConnectionApi;
-import io.mrarm.chatlib.irc.dcc.DCCServer;
-import io.mrarm.chatlib.irc.dcc.DCCUtils;
 import io.mrarm.irc.chat.ChannelInfoAdapter;
 import io.mrarm.irc.chat.ChatFragment;
+import io.mrarm.irc.chatlib.ChatApi;
+import io.mrarm.irc.chatlib.dto.NickWithPrefix;
+import io.mrarm.irc.chatlib.irc.ServerConnectionApi;
+import io.mrarm.irc.chatlib.irc.dcc.DCCServer;
+import io.mrarm.irc.chatlib.irc.dcc.DCCUtils;
 import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.config.ChatSettings;
 import io.mrarm.irc.dialog.UserSearchDialog;
@@ -71,7 +71,7 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
     private static final int REQUEST_CODE_DCC_FOLDER_PERMISSION = 101;
     private static final int REQUEST_CODE_DCC_STORAGE_PERMISSION = 102;
 
-    private NightModeRecreateHelper mNightModeHelper = new NightModeRecreateHelper(this);
+    private final NightModeRecreateHelper mNightModeHelper = new NightModeRecreateHelper(this);
     private LockableDrawerLayout mDrawerLayout;
     private DrawerHelper mDrawerHelper;
     private Toolbar mToolbar;
@@ -80,7 +80,7 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
     private Dialog mCurrentDialog;
     private ChannelInfoAdapter mChannelInfoAdapter;
     private boolean mAppExiting;
-    private DCCManager.ActivityDialogHandler mDCCDialogHandler =
+    private final DCCManager.ActivityDialogHandler mDCCDialogHandler =
             new DCCManager.ActivityDialogHandler(this, REQUEST_CODE_DCC_FOLDER_PERMISSION,
                     REQUEST_CODE_DCC_STORAGE_PERMISSION);
 
@@ -126,7 +126,7 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
         mDrawerHelper.setChannelClickListener((ServerConnectionInfo server, String channel) -> {
             mDrawerLayout.closeDrawers();
             Fragment f = getCurrentFragment();
-            if (f != null && f instanceof ChatFragment && ((ChatFragment) f).getConnectionInfo() == server)
+            if (f instanceof ChatFragment && ((ChatFragment) f).getConnectionInfo() == server)
                 ((ChatFragment) f).setCurrentChannel(channel, null);
             else
                 openServer(server, channel);
@@ -386,15 +386,6 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
             mDrawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED, GravityCompat.END);
             mDrawerLayout.closeDrawer(GravityCompat.END);
         }
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (mBackReturnToServerList) {
-            openManageServers();
-            return;
-        }
-        super.onBackPressed();
     }
 
     @Override

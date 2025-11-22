@@ -31,7 +31,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.UUID;
 
-import io.mrarm.chatlib.dto.ChannelList;
+import io.mrarm.irc.chatlib.dto.ChannelList;
 import io.mrarm.irc.util.Async;
 import io.mrarm.irc.view.ProgressBar;
 import io.mrarm.irc.view.RecyclerViewScrollbar;

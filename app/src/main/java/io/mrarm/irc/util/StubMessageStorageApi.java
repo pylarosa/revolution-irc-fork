@@ -3,16 +3,16 @@ package io.mrarm.irc.util;
 import java.util.List;
 import java.util.concurrent.Future;
 
-import io.mrarm.chatlib.ResponseCallback;
-import io.mrarm.chatlib.ResponseErrorCallback;
-import io.mrarm.chatlib.dto.MessageFilterOptions;
-import io.mrarm.chatlib.dto.MessageId;
-import io.mrarm.chatlib.dto.MessageInfo;
-import io.mrarm.chatlib.dto.MessageList;
-import io.mrarm.chatlib.dto.MessageListAfterIdentifier;
-import io.mrarm.chatlib.message.MessageListener;
-import io.mrarm.chatlib.message.WritableMessageStorageApi;
-import io.mrarm.chatlib.util.InstantFuture;
+import io.mrarm.irc.chatlib.ResponseCallback;
+import io.mrarm.irc.chatlib.ResponseErrorCallback;
+import io.mrarm.irc.chatlib.dto.MessageFilterOptions;
+import io.mrarm.irc.chatlib.dto.MessageId;
+import io.mrarm.irc.chatlib.dto.MessageInfo;
+import io.mrarm.irc.chatlib.dto.MessageList;
+import io.mrarm.irc.chatlib.dto.MessageListAfterIdentifier;
+import io.mrarm.irc.chatlib.message.MessageListener;
+import io.mrarm.irc.chatlib.message.WritableMessageStorageApi;
+import io.mrarm.irc.chatlib.util.InstantFuture;
 
 public class StubMessageStorageApi implements WritableMessageStorageApi {
 

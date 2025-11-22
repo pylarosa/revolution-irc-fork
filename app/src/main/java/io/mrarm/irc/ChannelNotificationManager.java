@@ -25,9 +25,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import io.mrarm.chatlib.dto.MessageId;
-import io.mrarm.chatlib.dto.MessageInfo;
 import io.mrarm.irc.chat.SendMessageHelper;
+import io.mrarm.irc.chatlib.dto.MessageId;
+import io.mrarm.irc.chatlib.dto.MessageInfo;
 import io.mrarm.irc.config.NotificationCountStorage;
 import io.mrarm.irc.config.NotificationRule;
 import io.mrarm.irc.config.NotificationRuleManager;
@@ -321,7 +321,7 @@ public class ChannelNotificationManager implements NotificationCountStorage.OnCh
 
     private RemoteViews createMessagesView(Context context, String header) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.notification_layout);
-        int[] messageIds = new int[] { R.id.message_0, R.id.message_1, R.id.message_2, R.id.message_3, R.id.message_4, R.id.message_5 };
+        int[] messageIds = new int[]{R.id.message_0, R.id.message_1, R.id.message_2, R.id.message_3, R.id.message_4, R.id.message_5};
         views.setTextViewText(R.id.message_channel, header);
         synchronized (this) {
             for (int i = messageIds.length - 1; i >= 0; i--) {

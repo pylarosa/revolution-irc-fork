@@ -6,8 +6,8 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import io.mrarm.chatlib.dto.MessageInfo;
 import io.mrarm.irc.NotificationManager;
+import io.mrarm.irc.chatlib.dto.MessageInfo;
 
 public class NotificationRule {
 

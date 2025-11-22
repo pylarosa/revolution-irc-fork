@@ -17,16 +17,16 @@ import android.os.Looper;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
 import android.preference.PreferenceManager;
-import androidx.annotation.NonNull;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import androidx.documentfile.provider.DocumentFile;
-import androidx.appcompat.app.AlertDialog;
-
 import android.provider.MediaStore;
 import android.util.Log;
 import android.webkit.MimeTypeMap;
 import android.widget.Toast;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.documentfile.provider.DocumentFile;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -46,15 +46,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import io.mrarm.chatlib.irc.MessagePrefix;
-import io.mrarm.chatlib.irc.ServerConnectionApi;
-import io.mrarm.chatlib.irc.ServerConnectionData;
-import io.mrarm.chatlib.irc.dcc.DCCClient;
-import io.mrarm.chatlib.irc.dcc.DCCClientManager;
-import io.mrarm.chatlib.irc.dcc.DCCReverseClient;
-import io.mrarm.chatlib.irc.dcc.DCCServer;
-import io.mrarm.chatlib.irc.dcc.DCCServerManager;
-import io.mrarm.chatlib.irc.dcc.DCCUtils;
+import io.mrarm.irc.chatlib.irc.MessagePrefix;
+import io.mrarm.irc.chatlib.irc.ServerConnectionApi;
+import io.mrarm.irc.chatlib.irc.ServerConnectionData;
+import io.mrarm.irc.chatlib.irc.dcc.DCCClient;
+import io.mrarm.irc.chatlib.irc.dcc.DCCClientManager;
+import io.mrarm.irc.chatlib.irc.dcc.DCCReverseClient;
+import io.mrarm.irc.chatlib.irc.dcc.DCCServer;
+import io.mrarm.irc.chatlib.irc.dcc.DCCServerManager;
+import io.mrarm.irc.chatlib.irc.dcc.DCCUtils;
 import io.mrarm.irc.upnp.PortMapper;
 import io.mrarm.irc.upnp.rpc.AddPortMappingCall;
 import io.mrarm.irc.util.FormatUtils;

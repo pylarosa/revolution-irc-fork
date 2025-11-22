@@ -10,10 +10,11 @@ import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.robolectric.annotation.Config;
 import org.robolectric.RuntimeEnvironment;
+import org.robolectric.annotation.Config;
 
 import java.io.File;
+import java.io.IOException;
 
 import io.mrarm.irc.storage.db.NotificationCountDatabase;
 
@@ -34,7 +35,7 @@ public class StorageRepositoryMigrationTest {
     }
 
     @Test
-    public void migrationAddsFirstMessageIdColumn() {
+    public void migrationAddsFirstMessageIdColumn() throws IOException {
         FrameworkSQLiteOpenHelperFactory factory = new FrameworkSQLiteOpenHelperFactory();
         SupportSQLiteOpenHelper helper = factory.create(
                 SupportSQLiteOpenHelper.Configuration.builder(context)

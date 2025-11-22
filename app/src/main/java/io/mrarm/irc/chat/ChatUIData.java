@@ -1,12 +1,11 @@
 package io.mrarm.irc.chat;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import io.mrarm.chatlib.ChannelListListener;
-import io.mrarm.chatlib.ChatApi;
+import io.mrarm.irc.chatlib.ChannelListListener;
+import io.mrarm.irc.chatlib.ChatApi;
 
 public class ChatUIData {
 

@@ -3,7 +3,6 @@ package io.mrarm.irc.chat;
 import android.app.Dialog;
 import android.content.Context;
 import android.graphics.Typeface;
-import androidx.recyclerview.widget.RecyclerView;
 import android.text.method.LinkMovementMethod;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
@@ -12,15 +11,17 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.recyclerview.widget.RecyclerView;
+
 import java.util.HashSet;
 import java.util.Set;
 
-import io.mrarm.chatlib.dto.StatusMessageInfo;
-import io.mrarm.chatlib.dto.StatusMessageList;
-import io.mrarm.chatlib.dto.WhoisStatusMessageInfo;
 import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.R;
 import io.mrarm.irc.ServerConnectionInfo;
+import io.mrarm.irc.chatlib.dto.StatusMessageInfo;
+import io.mrarm.irc.chatlib.dto.StatusMessageList;
+import io.mrarm.irc.chatlib.dto.WhoisStatusMessageInfo;
 import io.mrarm.irc.dialog.UserBottomSheetDialog;
 import io.mrarm.irc.util.AlignToPointSpan;
 import io.mrarm.irc.util.IRCColorUtils;

@@ -5,9 +5,9 @@ import android.text.Spannable;
 
 import java.util.ArrayList;
 
-import io.mrarm.chatlib.irc.IRCConnection;
 import io.mrarm.irc.R;
 import io.mrarm.irc.ServerConnectionInfo;
+import io.mrarm.irc.chatlib.irc.IRCConnection;
 import io.mrarm.irc.config.CommandAliasManager;
 import io.mrarm.irc.util.IRCColorUtils;
 import io.mrarm.irc.util.SimpleTextVariableList;
