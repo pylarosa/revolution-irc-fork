@@ -4,10 +4,6 @@ import android.content.Context;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
-import com.google.android.material.textfield.TextInputLayout;
-import androidx.core.view.GravityCompat;
-import androidx.appcompat.widget.ListPopupWindow;
-import androidx.appcompat.widget.PopupMenu;
 import android.text.Editable;
 import android.text.Spannable;
 import android.text.SpannableString;
@@ -27,15 +23,21 @@ import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import androidx.appcompat.widget.ListPopupWindow;
+import androidx.appcompat.widget.PopupMenu;
+import androidx.core.view.GravityCompat;
+
+import com.google.android.material.textfield.TextInputLayout;
+
 import java.util.Calendar;
 import java.util.Date;
 
-import io.mrarm.chatlib.dto.MessageInfo;
-import io.mrarm.chatlib.dto.MessageSenderInfo;
-import io.mrarm.irc.util.StyledAttributesHelper;
-import io.mrarm.irc.view.FormattableEditText;
+import io.mrarm.irc.chatlib.dto.MessageInfo;
+import io.mrarm.irc.chatlib.dto.MessageSenderInfo;
 import io.mrarm.irc.util.MessageBuilder;
 import io.mrarm.irc.util.SimpleTextWatcher;
+import io.mrarm.irc.util.StyledAttributesHelper;
+import io.mrarm.irc.view.FormattableEditText;
 import io.mrarm.irc.view.TextFormatBar;
 
 public class MessageFormatSettingsActivity extends ThemedActivity {

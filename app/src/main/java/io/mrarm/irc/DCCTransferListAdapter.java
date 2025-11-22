@@ -5,10 +5,6 @@ import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import androidx.annotation.NonNull;
-import androidx.core.content.FileProvider;
-import androidx.documentfile.provider.DocumentFile;
-import androidx.recyclerview.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -18,13 +14,17 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.documentfile.provider.DocumentFile;
+import androidx.recyclerview.widget.RecyclerView;
+
 import java.io.File;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.mrarm.chatlib.irc.dcc.DCCServer;
-import io.mrarm.chatlib.irc.dcc.DCCServerManager;
+import io.mrarm.irc.chatlib.irc.dcc.DCCServer;
+import io.mrarm.irc.chatlib.irc.dcc.DCCServerManager;
 import io.mrarm.irc.dialog.MenuBottomSheetDialog;
 import io.mrarm.irc.util.AdvancedDividerItemDecoration;
 import io.mrarm.irc.util.FormatUtils;

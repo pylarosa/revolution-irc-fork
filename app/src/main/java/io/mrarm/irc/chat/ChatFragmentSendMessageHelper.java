@@ -3,12 +3,6 @@ package io.mrarm.irc.chat;
 import android.app.Dialog;
 import android.content.Context;
 import android.graphics.Typeface;
-import androidx.annotation.NonNull;
-import com.google.android.material.bottomsheet.BottomSheetBehavior;
-import androidx.core.view.MarginLayoutParamsCompat;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
-import androidx.recyclerview.widget.ItemTouchHelper;
 import android.text.Editable;
 import android.text.InputType;
 import android.text.method.LinkMovementMethod;
@@ -23,18 +17,26 @@ import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.core.view.MarginLayoutParamsCompat;
+import androidx.recyclerview.widget.ItemTouchHelper;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.android.material.bottomsheet.BottomSheetBehavior;
+
 import java.util.List;
 
-import io.mrarm.chatlib.dto.NickWithPrefix;
-import io.mrarm.chatlib.dto.WhoisInfo;
-import io.mrarm.chatlib.irc.CommandHandlerList;
-import io.mrarm.chatlib.irc.IRCConnection;
-import io.mrarm.chatlib.irc.ServerConnectionApi;
-import io.mrarm.chatlib.irc.handlers.NickCommandHandler;
-import io.mrarm.chatlib.irc.handlers.WhoisCommandHandler;
 import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.R;
 import io.mrarm.irc.ServerConnectionInfo;
+import io.mrarm.irc.chatlib.dto.NickWithPrefix;
+import io.mrarm.irc.chatlib.dto.WhoisInfo;
+import io.mrarm.irc.chatlib.irc.CommandHandlerList;
+import io.mrarm.irc.chatlib.irc.IRCConnection;
+import io.mrarm.irc.chatlib.irc.ServerConnectionApi;
+import io.mrarm.irc.chatlib.irc.handlers.NickCommandHandler;
+import io.mrarm.irc.chatlib.irc.handlers.WhoisCommandHandler;
 import io.mrarm.irc.dialog.UserBottomSheetDialog;
 import io.mrarm.irc.util.AutoMultilineTextListener;
 import io.mrarm.irc.util.ColoredTextBuilder;

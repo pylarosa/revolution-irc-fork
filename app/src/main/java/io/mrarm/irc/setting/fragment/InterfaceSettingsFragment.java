@@ -8,33 +8,32 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
 import android.preference.PreferenceManager;
-
-import androidx.annotation.Nullable;
-import androidx.core.graphics.ColorUtils;
-import androidx.core.widget.CompoundButtonCompat;
-import androidx.appcompat.app.AlertDialog;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.View;
 import android.widget.Toast;
 
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.core.graphics.ColorUtils;
+import androidx.core.widget.CompoundButtonCompat;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Date;
 
-import io.mrarm.chatlib.dto.MessageInfo;
-import io.mrarm.chatlib.dto.MessageSenderInfo;
 import io.mrarm.irc.MessageFormatSettingsActivity;
 import io.mrarm.irc.R;
 import io.mrarm.irc.SettingsActivity;
 import io.mrarm.irc.ThemeEditorActivity;
 import io.mrarm.irc.ThemedActivity;
+import io.mrarm.irc.chatlib.dto.MessageInfo;
+import io.mrarm.irc.chatlib.dto.MessageSenderInfo;
 import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.config.ChatSettings;
 import io.mrarm.irc.config.NickAutocompleteSettings;
-import io.mrarm.irc.config.SettingsHelper;
 import io.mrarm.irc.dialog.MenuBottomSheetDialog;
 import io.mrarm.irc.setting.CheckBoxSetting;
 import io.mrarm.irc.setting.ClickableSetting;

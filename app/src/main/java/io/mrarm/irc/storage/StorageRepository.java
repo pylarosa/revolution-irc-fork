@@ -2,7 +2,6 @@ package io.mrarm.irc.storage;
 
 import android.content.Context;
 import android.content.ContextWrapper;
-
 import android.database.DatabaseErrorHandler;
 import android.database.sqlite.SQLiteDatabase;
 
@@ -22,9 +21,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import io.mrarm.chatlib.android.storage.SQLiteChannelDataStorage;
-import io.mrarm.chatlib.android.storage.SQLiteMessageStorageApi;
-import io.mrarm.chatlib.android.storage.SQLiteMiscStorage;
+import io.mrarm.irc.chatlib.android.SQLiteChannelDataStorage;
+import io.mrarm.irc.chatlib.android.SQLiteMessageStorageApi;
+import io.mrarm.irc.chatlib.android.SQLiteMiscStorage;
 import io.mrarm.irc.config.ServerConfigManager;
 import io.mrarm.irc.storage.db.MessageLogDao;
 import io.mrarm.irc.storage.db.MessageLogDatabase;

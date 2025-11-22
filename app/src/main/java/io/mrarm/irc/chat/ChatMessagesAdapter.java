@@ -4,9 +4,6 @@ import android.content.Context;
 import android.graphics.Typeface;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
-
-import androidx.annotation.NonNull;
-import androidx.recyclerview.widget.RecyclerView;
 import android.text.SpannableStringBuilder;
 import android.text.format.DateUtils;
 import android.text.method.LinkMovementMethod;
@@ -16,6 +13,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.RecyclerView;
+
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -24,10 +24,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
-import io.mrarm.chatlib.dto.MessageId;
-import io.mrarm.chatlib.dto.MessageInfo;
 import io.mrarm.irc.NotificationManager;
 import io.mrarm.irc.R;
+import io.mrarm.irc.chatlib.dto.MessageId;
+import io.mrarm.irc.chatlib.dto.MessageInfo;
 import io.mrarm.irc.util.AlignToPointSpan;
 import io.mrarm.irc.util.LongPressSelectTouchListener;
 import io.mrarm.irc.util.MessageBuilder;

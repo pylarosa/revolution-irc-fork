@@ -6,17 +6,15 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
-import io.mrarm.chatlib.irc.dcc.DCCServer;
-import io.mrarm.chatlib.irc.dcc.DCCServerManager;
+import io.mrarm.irc.chatlib.irc.dcc.DCCServer;
+import io.mrarm.irc.chatlib.irc.dcc.DCCServerManager;
 
 public class DCCHistory {
 

@@ -7,10 +7,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import io.mrarm.chatlib.ChatApi;
-import io.mrarm.chatlib.irc.IRCConnection;
 import io.mrarm.irc.ServerConnectionInfo;
 import io.mrarm.irc.ServerConnectionManager;
+import io.mrarm.irc.chatlib.ChatApi;
+import io.mrarm.irc.chatlib.irc.IRCConnection;
 
 public class ServerPingTask {
 

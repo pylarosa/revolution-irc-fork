@@ -22,13 +22,13 @@ import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
-import io.mrarm.chatlib.dto.NickWithPrefix;
 import io.mrarm.irc.ChannelNotificationManager;
 import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.NotificationManager;
 import io.mrarm.irc.R;
 import io.mrarm.irc.ServerConnectionInfo;
 import io.mrarm.irc.ServerConnectionManager;
+import io.mrarm.irc.chatlib.dto.NickWithPrefix;
 import io.mrarm.irc.config.ChatSettings;
 import io.mrarm.irc.config.NickAutocompleteSettings;
 import io.mrarm.irc.config.SettingsHelper;

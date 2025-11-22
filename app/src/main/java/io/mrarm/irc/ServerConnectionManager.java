@@ -24,8 +24,8 @@ import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 
-import io.mrarm.chatlib.irc.IRCConnectionRequest;
-import io.mrarm.chatlib.irc.cap.SASLOptions;
+import io.mrarm.irc.chatlib.irc.IRCConnectionRequest;
+import io.mrarm.irc.chatlib.irc.cap.SASLOptions;
 import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
@@ -40,15 +40,6 @@ import kotlin.coroutines.EmptyCoroutineContext;
 import kotlinx.coroutines.BuildersKt;
 import kotlinx.coroutines.CoroutineScope;
 import kotlinx.coroutines.CoroutineStart;
-import io.mrarm.irc.util.DelayScheduler;
-import io.mrarm.irc.util.ManagedCoroutineScope;
-import io.mrarm.irc.util.SchedulerProvider;
-import io.mrarm.irc.util.SchedulerProviderHolder;
-import kotlin.Unit;
-import kotlin.coroutines.Continuation;
-import kotlin.jvm.functions.Function2;
-import kotlinx.coroutines.BuildersKt;
-import kotlinx.coroutines.CoroutineScope;
 
 public class ServerConnectionManager {
 

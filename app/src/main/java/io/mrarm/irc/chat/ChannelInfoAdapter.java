@@ -2,7 +2,6 @@ package io.mrarm.irc.chat;
 
 import android.app.Dialog;
 import android.graphics.Color;
-import androidx.recyclerview.widget.RecyclerView;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.format.DateUtils;
@@ -13,13 +12,15 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
+import androidx.recyclerview.widget.RecyclerView;
+
 import java.util.Date;
 import java.util.List;
 
-import io.mrarm.chatlib.dto.NickWithPrefix;
 import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.R;
 import io.mrarm.irc.ServerConnectionInfo;
+import io.mrarm.irc.chatlib.dto.NickWithPrefix;
 import io.mrarm.irc.dialog.UserBottomSheetDialog;
 import io.mrarm.irc.util.IRCColorUtils;
 import io.mrarm.irc.util.LinkHelper;

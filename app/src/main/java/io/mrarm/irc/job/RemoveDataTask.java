@@ -16,11 +16,11 @@ import androidx.lifecycle.LifecycleOwner;
 import java.io.File;
 import java.util.UUID;
 
-import io.mrarm.chatlib.android.storage.SQLiteMessageStorageApi;
-import io.mrarm.chatlib.irc.ServerConnectionApi;
 import io.mrarm.irc.R;
 import io.mrarm.irc.ServerConnectionInfo;
 import io.mrarm.irc.ServerConnectionManager;
+import io.mrarm.irc.chatlib.android.SQLiteMessageStorageApi;
+import io.mrarm.irc.chatlib.irc.ServerConnectionApi;
 import io.mrarm.irc.config.CommandAliasManager;
 import io.mrarm.irc.config.NotificationRuleManager;
 import io.mrarm.irc.config.ServerConfigManager;
