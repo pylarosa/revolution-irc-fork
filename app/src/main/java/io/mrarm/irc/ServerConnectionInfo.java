@@ -116,6 +116,9 @@ public class ServerConnectionInfo {
             ServerConfigManager.getInstance(mManager.getContext());
             SQLiteMessageStorageApi storageApi = mStorageRepository.getMessageStorageApi(getUUID());
             connection.getServerConnectionData().setMessageStorageApi(storageApi);
+            connection.getServerConnectionData().setMessageStorageRepository(
+                    io.mrarm.irc.storage.message.MessageStorageRepository.getInstance(mManager.getContext()));
+            connection.getServerConnectionData().setServerUUID(getUUID());
             mSQLiteMiscStorage = mStorageRepository.getMiscStorage(getUUID());
             connection.getServerConnectionData().setChannelDataStorage(mStorageRepository.createChannelDataStorage(getUUID()));
             connection.getServerConnectionData().getMessageFilterList().addMessageFilter(new IgnoreListMessageFilter(mServerConfig));

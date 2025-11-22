@@ -57,6 +57,7 @@ import io.mrarm.irc.config.ChatSettings;
 import io.mrarm.irc.config.MessageFormatSettings;
 import io.mrarm.irc.config.SettingsHelper;
 import io.mrarm.irc.config.UiSettingChangeCallback;
+import io.mrarm.irc.storage.message.MessageStorageRepository;
 import io.mrarm.irc.util.LongPressSelectTouchListener;
 import io.mrarm.irc.util.ScrollPosLinearLayoutManager;
 
@@ -265,16 +266,18 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
                         return;
                     Log.i(TAG, "Load more (older): " + mChannelName);
                     mIsLoadingMore = true;
+                    ResponseCallback<MessageList> cb = (MessageList messages) -> {
+                        updateMessageList(() -> {
+                            mAdapter.addMessagesToTop(messages.getMessages(),
+                                    messages.getMessageIds());
+                            mLoadOlderIdentifier = messages.getOlder();
+                            mIsLoadingMore = false;
+                        });
+                    };
+                    if (requestMessagesFromRoom(100, mLoadOlderIdentifier, cb))
+                        return;
                     mConnection.getApiInstance().getMessageStorageApi().getMessages(mChannelName,
-                            100, getFilterOptions(), mLoadOlderIdentifier,
-                            (MessageList messages) -> {
-                                updateMessageList(() -> {
-                                    mAdapter.addMessagesToTop(messages.getMessages(),
-                                            messages.getMessageIds());
-                                    mLoadOlderIdentifier = messages.getOlder();
-                                    mIsLoadingMore = false;
-                                });
-                            }, null);
+                            100, getFilterOptions(), mLoadOlderIdentifier, cb, null);
                 }
                 int lastVisible = mLayoutManager.findLastVisibleItemPosition();
                 if (lastVisible <= mAdapter.getItemCount() &&
@@ -283,16 +286,18 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
                         return;
                     Log.i(TAG, "Load more (newer): " + mChannelName);
                     mIsLoadingMore = true;
+                    ResponseCallback<MessageList> cb = (MessageList messages) -> {
+                        updateMessageList(() -> {
+                            mAdapter.addMessagesToBottom(messages.getMessages(),
+                                    messages.getMessageIds());
+                            mLoadNewerIdentifier = messages.getNewer();
+                            mIsLoadingMore = false;
+                        });
+                    };
+                    if (requestMessagesFromRoom(100, mLoadNewerIdentifier, cb))
+                        return;
                     mConnection.getApiInstance().getMessageStorageApi().getMessages(mChannelName,
-                            100, getFilterOptions(), mLoadNewerIdentifier,
-                            (MessageList messages) -> {
-                                updateMessageList(() -> {
-                                    mAdapter.addMessagesToBottom(messages.getMessages(),
-                                            messages.getMessageIds());
-                                    mLoadNewerIdentifier = messages.getNewer();
-                                    mIsLoadingMore = false;
-                                });
-                            }, null);
+                            100, getFilterOptions(), mLoadNewerIdentifier, cb, null);
                 }
             }
         });
@@ -361,6 +366,32 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
             IRCChooserTargetService.unsetChannel(mConnection.getUUID(), mChannelName);
     }
 
+    private MessageStorageRepository getRoomRepository() {
+        if (mConnection == null)
+            return null;
+        return mConnection.getApiInstance().getServerConnectionData().getMessageStorageRepository();
+    }
+
+    private UUID getServerUUID() {
+        return mConnection != null ? mConnection.getUUID() : null;
+    }
+
+    private boolean requestMessagesFromRoom(int count, MessageListAfterIdentifier after, ResponseCallback<MessageList> cb) {
+        MessageStorageRepository repository = getRoomRepository();
+        UUID serverUUID = getServerUUID();
+        if (repository == null || serverUUID == null)
+            return false;
+        return repository.getMessages(serverUUID, mChannelName, count, getFilterOptions(), after, cb, null) != null;
+    }
+
+    private boolean requestMessagesNearFromRoom(MessageId nearMessage, ResponseCallback<MessageList> cb) {
+        MessageStorageRepository repository = getRoomRepository();
+        UUID serverUUID = getServerUUID();
+        if (repository == null || serverUUID == null)
+            return false;
+        return repository.getMessagesNear(serverUUID, mChannelName, nearMessage, getFilterOptions(), cb, null) != null;
+    }
+
     private void reloadMessages(MessageId nearMessage) {
         if (ChatSettings.shouldHideJoinPartMessages())
             mMessageFilterOptions = sFilterJoinParts;
@@ -387,23 +418,37 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
         };
         MessageStorageApi storage = mConnection.getApiInstance().getMessageStorageApi();
         if (nearMessage != null) {
-            storage.getMessagesNear(mChannelName, nearMessage,
-                    getFilterOptions(), (MessageList messages) -> {
-                        cb.onResponse(messages);
-                        List<MessageId> ids = messages.getMessageIds();
-                        updateMessageList(() -> {
-                            for (int i = ids.size() - 1; i >= 0; --i) {
-                                if (ids.get(i).equals(nearMessage)) {
-                                    // TODO: Is this behaviour reliable? It looks random to me, and doesn't seem to match what the docs define :/
-                                    ((LinearLayoutManager) mRecyclerView.getLayoutManager()).scrollToPositionWithOffset(i, 0);
+            if (!requestMessagesNearFromRoom(nearMessage, (MessageList messages) -> {
+                cb.onResponse(messages);
+                List<MessageId> ids = messages.getMessageIds();
+                updateMessageList(() -> {
+                    for (int i = ids.size() - 1; i >= 0; --i) {
+                        if (ids.get(i).equals(nearMessage)) {
+                            ((LinearLayoutManager) mRecyclerView.getLayoutManager()).scrollToPositionWithOffset(i, 0);
+                        }
+                    }
+                    mLoadNewerIdentifier = messages.getNewer();
+                });
+            })) {
+                storage.getMessagesNear(mChannelName, nearMessage,
+                        getFilterOptions(), (MessageList messages) -> {
+                            cb.onResponse(messages);
+                            List<MessageId> ids = messages.getMessageIds();
+                            updateMessageList(() -> {
+                                for (int i = ids.size() - 1; i >= 0; --i) {
+                                    if (ids.get(i).equals(nearMessage)) {
+                                        // TODO: Is this behaviour reliable? It looks random to me, and doesn't seem to match what the docs define :/
+                                        ((LinearLayoutManager) mRecyclerView.getLayoutManager()).scrollToPositionWithOffset(i, 0);
+                                    }
                                 }
-                            }
-                            mLoadNewerIdentifier = messages.getNewer();
-                        });
-                    }, null);
+                                mLoadNewerIdentifier = messages.getNewer();
+                            });
+                        }, null);
+            }
         } else {
-            mConnection.getApiInstance().getMessageStorageApi().getMessages(mChannelName, 100,
-                    getFilterOptions(), null, cb, null);
+            if (!requestMessagesFromRoom(100, null, cb))
+                mConnection.getApiInstance().getMessageStorageApi().getMessages(mChannelName, 100,
+                        getFilterOptions(), null, cb, null);
         }
     }
 

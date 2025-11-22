@@ -17,6 +17,7 @@ import io.mrarm.irc.chatlib.dto.ModeList;
 import io.mrarm.irc.chatlib.dto.NickPrefixList;
 import io.mrarm.irc.chatlib.dto.NickWithPrefix;
 import io.mrarm.irc.chatlib.irc.cap.Capability;
+import io.mrarm.irc.storage.message.MessageStorageRepository;
 
 public class ChannelData {
 
@@ -305,6 +306,10 @@ public class ChannelData {
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         }
+        MessageStorageRepository repository = connection.getMessageStorageRepository();
+        UUID serverId = connection.getServerUUID();
+        if (repository != null && serverId != null)
+            repository.insert(serverId, name, message);
     }
 
     public void addMessage(MessageInfo.Builder message, Map<String, String> tags) {

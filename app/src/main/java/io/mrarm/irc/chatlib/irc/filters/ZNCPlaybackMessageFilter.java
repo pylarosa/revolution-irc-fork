@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.UUID;
 
 import io.mrarm.irc.chatlib.dto.BatchInfo;
 import io.mrarm.irc.chatlib.dto.MessageFilterOptions;
@@ -13,6 +14,7 @@ import io.mrarm.irc.chatlib.dto.MessageList;
 import io.mrarm.irc.chatlib.irc.MessageFilter;
 import io.mrarm.irc.chatlib.irc.ServerConnectionData;
 import io.mrarm.irc.chatlib.irc.cap.BatchCapability;
+import io.mrarm.irc.storage.message.MessageStorageRepository;
 
 public class ZNCPlaybackMessageFilter implements MessageFilter, BatchCapability.BatchListener {
 
@@ -44,6 +46,13 @@ public class ZNCPlaybackMessageFilter implements MessageFilter, BatchCapability.
     }
 
     private List<MessageInfo> getChannelMessageLog(ServerConnectionData connection, String channel, int count) {
+        MessageStorageRepository repository = connection.getMessageStorageRepository();
+        UUID serverUUID = connection.getServerUUID();
+        if (repository != null && serverUUID != null) {
+            MessageList list = repository.getMessagesInternal(serverUUID, channel, count, messagesOnlyFilter, null);
+            if (list != null)
+                return list.getMessages();
+        }
         try {
             MessageList list = connection.getMessageStorageApi().getMessages(channel, count, messagesOnlyFilter, null, null, null).get();
             return list.getMessages();
@@ -55,6 +64,8 @@ public class ZNCPlaybackMessageFilter implements MessageFilter, BatchCapability.
     @Override
     public void onBatchEnd(ServerConnectionData connection, BatchInfo batch) {
         passthru = true;
+        MessageStorageRepository repository = connection.getMessageStorageRepository();
+        UUID serverUUID = connection.getServerUUID();
         for (Map.Entry<String, List<MessageInfo>> entry : channelData.entrySet()) {
             List<MessageInfo> currentMessages = getChannelMessageLog(connection, entry.getKey(), entry.getValue().size());
             int i;
@@ -80,6 +91,8 @@ public class ZNCPlaybackMessageFilter implements MessageFilter, BatchCapability.
                 } catch (ExecutionException | InterruptedException e) {
                     throw new RuntimeException(e);
                 }
+                if (repository != null && serverUUID != null)
+                    repository.insert(serverUUID, entry.getKey(), message);
             }
         }
         passthru = false;

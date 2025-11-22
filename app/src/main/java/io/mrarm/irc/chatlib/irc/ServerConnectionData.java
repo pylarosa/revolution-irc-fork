@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.UUID;
 
 import io.mrarm.irc.chatlib.ChannelListListener;
 import io.mrarm.irc.chatlib.NoSuchChannelException;
@@ -11,6 +12,7 @@ import io.mrarm.irc.chatlib.dto.MessageInfo;
 import io.mrarm.irc.chatlib.irc.cap.CapabilityManager;
 import io.mrarm.irc.chatlib.message.WritableMessageStorageApi;
 import io.mrarm.irc.chatlib.user.WritableUserInfoApi;
+import io.mrarm.irc.storage.message.MessageStorageRepository;
 
 public class ServerConnectionData {
 
@@ -22,6 +24,7 @@ public class ServerConnectionData {
     private ServerStatusData serverStatusData = new ServerStatusData();
     private WritableUserInfoApi userInfoApi;
     private WritableMessageStorageApi messageStorageApi;
+    private MessageStorageRepository messageStorageRepository;
     private ChannelDataStorage channelDataStorage;
     private NickPrefixParser nickPrefixParser = OneCharNickPrefixParser.getInstance();
     private final ServerSupportList supportList = new ServerSupportList();
@@ -29,6 +32,7 @@ public class ServerConnectionData {
     private CommandHandlerList commandHandlerList = new CommandHandlerList();
     private CapabilityManager capabilityManager = new CapabilityManager(this);
     private final List<ChannelListListener> channelListListeners = new ArrayList<>();
+    private UUID serverUUID;
 
     public ServerConnectionData() {
         commandHandlerList.addDefaultHandlers();
@@ -80,6 +84,14 @@ public class ServerConnectionData {
         this.messageStorageApi = messageStorageApi;
     }
 
+    public synchronized MessageStorageRepository getMessageStorageRepository() {
+        return messageStorageRepository;
+    }
+
+    public synchronized void setMessageStorageRepository(MessageStorageRepository repository) {
+        this.messageStorageRepository = repository;
+    }
+
     public synchronized ChannelDataStorage getChannelDataStorage() {
         return channelDataStorage;
     }
@@ -94,6 +106,14 @@ public class ServerConnectionData {
 
     public void setNickPrefixParser(NickPrefixParser parser) {
         this.nickPrefixParser = parser;
+    }
+
+    public synchronized UUID getServerUUID() {
+        return serverUUID;
+    }
+
+    public synchronized void setServerUUID(UUID serverUUID) {
+        this.serverUUID = serverUUID;
     }
 
     public ServerSupportList getSupportList() {
@@ -182,6 +202,8 @@ public class ServerConnectionData {
 
     public void addLocalMessageToAllChannels(MessageInfo messageInfo) {
         messageStorageApi.addMessage(null, messageInfo, null, null);
+        if (messageStorageRepository != null && serverUUID != null)
+            messageStorageRepository.insert(serverUUID, null, messageInfo);
     }
 
     public ServerStatusData getServerStatusData() {
