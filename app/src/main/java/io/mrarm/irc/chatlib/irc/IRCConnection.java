@@ -25,10 +25,10 @@ import io.mrarm.irc.chatlib.irc.handlers.MessageCommandHandler;
 import io.mrarm.irc.chatlib.irc.handlers.NickCommandHandler;
 import io.mrarm.irc.chatlib.irc.handlers.PongCommandHandler;
 import io.mrarm.irc.chatlib.irc.handlers.WhoisCommandHandler;
-import io.mrarm.irc.chatlib.message.SimpleMessageStorageApi;
 import io.mrarm.irc.chatlib.user.SimpleUserInfoApi;
 import io.mrarm.irc.chatlib.util.SettableFuture;
 import io.mrarm.irc.chatlib.util.SimpleRequestExecutor;
+import io.mrarm.irc.util.StubMessageStorageApi;
 
 public class IRCConnection extends ServerConnectionApi {
 
@@ -52,7 +52,7 @@ public class IRCConnection extends ServerConnectionApi {
         super(new ServerConnectionData());
         inputHandler = new MessageHandler(getServerConnectionData());
         getServerConnectionData().setUserInfoApi(new SimpleUserInfoApi());
-        getServerConnectionData().setMessageStorageApi(new SimpleMessageStorageApi());
+        getServerConnectionData().setMessageStorageApi(new StubMessageStorageApi());
     }
 
     private void sendCommandRaw(String string, boolean flush) throws IOException {
