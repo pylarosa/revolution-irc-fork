@@ -10,7 +10,6 @@ import java.util.UUID;
 import io.mrarm.irc.chat.ChatUIData;
 import io.mrarm.irc.chatlib.ChannelListListener;
 import io.mrarm.irc.chatlib.ChatApi;
-import io.mrarm.irc.chatlib.android.SQLiteMessageStorageApi;
 import io.mrarm.irc.chatlib.android.SQLiteMiscStorage;
 import io.mrarm.irc.chatlib.dto.MessageId;
 import io.mrarm.irc.chatlib.irc.IRCConnection;
@@ -21,10 +20,12 @@ import io.mrarm.irc.chatlib.irc.cap.SASLCapability;
 import io.mrarm.irc.chatlib.irc.cap.SASLOptions;
 import io.mrarm.irc.chatlib.irc.filters.ZNCPlaybackMessageFilter;
 import io.mrarm.irc.chatlib.irc.handlers.MessageCommandHandler;
-import io.mrarm.irc.chatlib.message.MessageStorageApi;
+import io.mrarm.irc.chatlib.message.RoomMessageStorageApi;
+import io.mrarm.irc.chatlib.message.WritableMessageStorageApi;
 import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
+import io.mrarm.irc.storage.MessageStorageRepository;
 import io.mrarm.irc.storage.StorageRepository;
 import io.mrarm.irc.util.DelayScheduler;
 import io.mrarm.irc.util.IgnoreListMessageFilter;
@@ -114,10 +115,15 @@ public class ServerConnectionInfo {
         if (mApi == null || !(mApi instanceof IRCConnection)) {
             connection = new IRCConnection();
             ServerConfigManager.getInstance(mManager.getContext());
-            SQLiteMessageStorageApi storageApi = mStorageRepository.getMessageStorageApi(getUUID());
-            connection.getServerConnectionData().setMessageStorageApi(storageApi);
-            mSQLiteMiscStorage = mStorageRepository.getMiscStorage(getUUID());
-            connection.getServerConnectionData().setChannelDataStorage(mStorageRepository.createChannelDataStorage(getUUID()));
+            MessageStorageRepository roomRepo = MessageStorageRepository.getInstance(mManager.getContext());
+
+            connection.getServerConnectionData().setMessageStorageRepository(roomRepo);
+            connection.getServerConnectionData().setServerUUID(getUUID());
+
+            WritableMessageStorageApi api = new RoomMessageStorageApi(roomRepo, getUUID());
+            connection.getServerConnectionData().setMessageStorageApi(api);
+
+
             connection.getServerConnectionData().getMessageFilterList().addMessageFilter(new IgnoreListMessageFilter(mServerConfig));
             if (mSASLOptions != null)
                 connection.getServerConnectionData().getCapabilityManager().registerCapability(
@@ -250,9 +256,6 @@ public class ServerConnectionInfo {
     public synchronized void close() {
         Log.i("ServerConnectionInfo", "Closing");
         if (getApiInstance() != null) {
-            MessageStorageApi m = getApiInstance().getMessageStorageApi();
-            if (m instanceof SQLiteMessageStorageApi)
-                mStorageRepository.closeMessageStorage(getUUID());
             ServerConnectionData connectionData = ((ServerConnectionApi) getApiInstance())
                     .getServerConnectionData();
             connectionData.setMessageStorageApi(new StubMessageStorageApi());
@@ -303,9 +306,10 @@ public class ServerConnectionInfo {
     }
 
     public MessageId.Parser getMessageIdParser() {
-        // NOTE: We hardcode it to to SQLite here, as this is the only storage type we current use.
-        // This might need to be changed if we switch storage type in the future.
-        return SQLiteMessageStorageApi.getMessageIdParserInstance();
+        return ((ServerConnectionApi) getApiInstance())
+                .getServerConnectionData()
+                .getMessageStorageApi()
+                .getMessageIdParser();
     }
 
     public boolean isConnected() {

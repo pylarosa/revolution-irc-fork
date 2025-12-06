@@ -19,6 +19,14 @@ public class MessageInfo {
         }
     }
 
+    public static MessageInfo.MessageType typeFromInt(int i) {
+        for (MessageInfo.MessageType t : MessageInfo.MessageType.values()) {
+            if (t.asInt() == i)
+                return t;
+        }
+        return MessageInfo.MessageType.NORMAL;  // fallback
+    }
+
     private MessageSenderInfo sender;
     private Date date;
     private String message;

@@ -28,6 +28,7 @@ import io.mrarm.irc.NotificationManager;
 import io.mrarm.irc.R;
 import io.mrarm.irc.chatlib.dto.MessageId;
 import io.mrarm.irc.chatlib.dto.MessageInfo;
+import io.mrarm.irc.chatlib.message.SimpleMessageId;
 import io.mrarm.irc.util.AlignToPointSpan;
 import io.mrarm.irc.util.LongPressSelectTouchListener;
 import io.mrarm.irc.util.MessageBuilder;
@@ -72,6 +73,32 @@ public class ChatMessagesAdapter extends RecyclerView.Adapter<RecyclerView.ViewH
 
         setMessages(messages, messageIds);
         setHasStableIds(true);
+    }
+
+    public long getFirstMessageId() {
+        for (Item it : mPrependedMessages) {
+            if (it instanceof MessageItem)
+                return ((SimpleMessageId) ((MessageItem) it).mMessageId).getIndex();
+        }
+        for (Item it : mMessages) {
+            if (it instanceof MessageItem)
+                return ((SimpleMessageId) ((MessageItem) it).mMessageId).getIndex();
+        }
+        return Long.MAX_VALUE; // no messages
+    }
+
+    public long getLastMessageId() {
+        for (int i = mMessages.size() - 1; i >= 0; i--) {
+            Item it = mMessages.get(i);
+            if (it instanceof MessageItem)
+                return ((SimpleMessageId) ((MessageItem) it).mMessageId).getIndex();
+        }
+        for (int i = mPrependedMessages.size() - 1; i >= 0; i--) {
+            Item it = mPrependedMessages.get(i);
+            if (it instanceof MessageItem)
+                return ((SimpleMessageId) ((MessageItem) it).mMessageId).getIndex();
+        }
+        return -1;
     }
 
     public void setNewMessagesStart(MessageId start) {

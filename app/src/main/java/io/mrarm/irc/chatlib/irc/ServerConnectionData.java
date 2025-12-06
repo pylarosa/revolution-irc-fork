@@ -3,6 +3,7 @@ package io.mrarm.irc.chatlib.irc;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
 import io.mrarm.irc.chatlib.ChannelListListener;
@@ -11,6 +12,7 @@ import io.mrarm.irc.chatlib.dto.MessageInfo;
 import io.mrarm.irc.chatlib.irc.cap.CapabilityManager;
 import io.mrarm.irc.chatlib.message.WritableMessageStorageApi;
 import io.mrarm.irc.chatlib.user.WritableUserInfoApi;
+import io.mrarm.irc.storage.MessageStorageRepository;
 
 public class ServerConnectionData {
 
@@ -22,6 +24,7 @@ public class ServerConnectionData {
     private ServerStatusData serverStatusData = new ServerStatusData();
     private WritableUserInfoApi userInfoApi;
     private WritableMessageStorageApi messageStorageApi;
+    private MessageStorageRepository messageStorageRepository;
     private ChannelDataStorage channelDataStorage;
     private NickPrefixParser nickPrefixParser = OneCharNickPrefixParser.getInstance();
     private final ServerSupportList supportList = new ServerSupportList();
@@ -29,6 +32,7 @@ public class ServerConnectionData {
     private CommandHandlerList commandHandlerList = new CommandHandlerList();
     private CapabilityManager capabilityManager = new CapabilityManager(this);
     private final List<ChannelListListener> channelListListeners = new ArrayList<>();
+    private UUID serverUUID;
 
     public ServerConnectionData() {
         commandHandlerList.addDefaultHandlers();
@@ -64,6 +68,14 @@ public class ServerConnectionData {
         this.api = api;
     }
 
+    public synchronized void setServerUUID(UUID uuid) {
+        this.serverUUID = uuid;
+    }
+
+    public synchronized UUID getServerUUID() {
+        return serverUUID;
+    }
+
     public synchronized WritableUserInfoApi getUserInfoApi() {
         return userInfoApi;
     }
@@ -86,6 +98,14 @@ public class ServerConnectionData {
 
     public synchronized void setChannelDataStorage(ChannelDataStorage channelDataStorage) {
         this.channelDataStorage = channelDataStorage;
+    }
+
+    public synchronized void setMessageStorageRepository(MessageStorageRepository repo) {
+        this.messageStorageRepository = repo;
+    }
+
+    public synchronized MessageStorageRepository getMessageStorageRepository() {
+        return messageStorageRepository;
     }
 
     public NickPrefixParser getNickPrefixParser() {

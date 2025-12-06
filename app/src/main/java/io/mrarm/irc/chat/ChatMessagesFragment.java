@@ -38,7 +38,6 @@ import io.mrarm.irc.R;
 import io.mrarm.irc.ServerConnectionInfo;
 import io.mrarm.irc.ServerConnectionManager;
 import io.mrarm.irc.chatlib.ChannelInfoListener;
-import io.mrarm.irc.chatlib.ResponseCallback;
 import io.mrarm.irc.chatlib.StatusMessageListener;
 import io.mrarm.irc.chatlib.dto.ChannelInfo;
 import io.mrarm.irc.chatlib.dto.MessageFilterOptions;
@@ -52,11 +51,12 @@ import io.mrarm.irc.chatlib.dto.StatusMessageInfo;
 import io.mrarm.irc.chatlib.dto.StatusMessageList;
 import io.mrarm.irc.chatlib.irc.ServerConnectionApi;
 import io.mrarm.irc.chatlib.message.MessageListener;
-import io.mrarm.irc.chatlib.message.MessageStorageApi;
+import io.mrarm.irc.chatlib.message.SimpleMessageId;
 import io.mrarm.irc.config.ChatSettings;
 import io.mrarm.irc.config.MessageFormatSettings;
 import io.mrarm.irc.config.SettingsHelper;
 import io.mrarm.irc.config.UiSettingChangeCallback;
+import io.mrarm.irc.storage.MessageStorageRepository;
 import io.mrarm.irc.util.LongPressSelectTouchListener;
 import io.mrarm.irc.util.ScrollPosLinearLayoutManager;
 
@@ -99,6 +99,8 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
     private long mUnreadCheckedFirst = -1;
     private long mUnreadCheckedLast = -1;
     private MessageId mUnreadCheckFor;
+
+    private MessageStorageRepository mRoomRepo;
 
     static {
         sFilterJoinParts = new MessageFilterOptions();
@@ -174,6 +176,8 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
         mConnection = connectionInfo;
         mChannelName = getArguments().getString(ARG_CHANNEL_NAME);
 
+        this.mRoomRepo = ((ServerConnectionApi) mConnection.getApiInstance()).getServerConnectionData().getMessageStorageRepository();
+
         if (mChannelName != null) {
             mAdapter = new ChatMessagesAdapter(this, new ArrayList<>(), new ArrayList<>());
             mAdapter.setMessageFont(ChatSettings.getFont(), ChatSettings.getFontSize());
@@ -191,11 +195,9 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
             connectionInfo.getApiInstance().subscribeChannelInfo(mChannelName, this, null, null);
             mNeedsUnsubscribeChannelInfo = true;
 
-            String msgIdStr = ((ChatFragment) getParentFragment()).getAndClearMessageJump(mChannelName);
-            MessageId msgId = null;
-            if (msgIdStr != null)
-                msgId = mConnection.getApiInstance().getMessageStorageApi().getMessageIdParser().parse(msgIdStr);
-            reloadMessages(msgId);
+            Long jumpId = ((ChatFragment) getParentFragment()).getAndClearMessageJump(mChannelName);
+            reloadMessages(jumpId);
+
         } else if (getArguments().getBoolean(ARG_DISPLAY_STATUS)) {
             mStatusAdapter = new ServerStatusMessagesAdapter(mConnection, new StatusMessageList(new ArrayList<>()));
             mStatusAdapter.setMessageFont(ChatSettings.getFont(), ChatSettings.getFontSize());
@@ -261,50 +263,65 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
                 checkForUnreadMessages();
                 int firstVisible = mLayoutManager.findFirstVisibleItemPosition();
                 if (firstVisible >= 0 && firstVisible < LOAD_MORE_BEFORE_INDEX) {
-                    if (mIsLoadingMore || mLoadOlderIdentifier == null || !mAdapter.hasMessages())
+                    if (mIsLoadingMore || !mAdapter.hasMessages())
                         return;
                     Log.i(TAG, "Load more (older): " + mChannelName);
+                    long firstId = mAdapter.getFirstMessageId();  // oldest currently displayed
                     mIsLoadingMore = true;
-                    mConnection.getApiInstance().getMessageStorageApi().getMessages(mChannelName,
-                            100, getFilterOptions(), mLoadOlderIdentifier,
-                            (MessageList messages) -> {
+
+                    mRoomRepo.loadOlderAsync(
+                            mConnection.getUUID(),
+                            mChannelName,
+                            firstId,
+                            100,
+                            (olderList) -> {
+                                MessageList messages = mRoomRepo.toMessageListFromRoom(olderList);
                                 updateMessageList(() -> {
-                                    mAdapter.addMessagesToTop(messages.getMessages(),
-                                            messages.getMessageIds());
-                                    mLoadOlderIdentifier = messages.getOlder();
+                                    mAdapter.addMessagesToTop(messages.getMessages(), messages.getMessageIds());
                                     mIsLoadingMore = false;
                                 });
-                            }, null);
+                            }
+                    );
                 }
                 int lastVisible = mLayoutManager.findLastVisibleItemPosition();
                 if (lastVisible <= mAdapter.getItemCount() &&
                         lastVisible > mAdapter.getItemCount() - LOAD_MORE_BEFORE_INDEX) {
-                    if (mIsLoadingMore || mLoadNewerIdentifier == null || !mAdapter.hasMessages())
+                    if (mIsLoadingMore || !mAdapter.hasMessages())
                         return;
                     Log.i(TAG, "Load more (newer): " + mChannelName);
+                    long lastId = mAdapter.getLastMessageId();
                     mIsLoadingMore = true;
-                    mConnection.getApiInstance().getMessageStorageApi().getMessages(mChannelName,
-                            100, getFilterOptions(), mLoadNewerIdentifier,
-                            (MessageList messages) -> {
+
+                    mRoomRepo.loadNewerAsync(
+                            mConnection.getUUID(),
+                            mChannelName,
+                            lastId,
+                            100,
+                            (newerList) -> {
+                                MessageList messages = mRoomRepo.toMessageListFromRoom(newerList);
                                 updateMessageList(() -> {
-                                    mAdapter.addMessagesToBottom(messages.getMessages(),
-                                            messages.getMessageIds());
-                                    mLoadNewerIdentifier = messages.getNewer();
+                                    mAdapter.addMessagesToBottom(messages.getMessages(), messages.getMessageIds());
                                     mIsLoadingMore = false;
                                 });
-                            }, null);
+                            }
+                    );
                 }
             }
         });
 
         mUnreadCtr.setOnClickListener((v) -> {
-            ChannelNotificationManager mgr = mConnection.getNotificationManager().getChannelManager(mChannelName, true);
+            ChannelNotificationManager mgr =
+                    mConnection.getNotificationManager().getChannelManager(mChannelName, true);
             MessageId msgId = mgr.getFirstUnreadMessage();
             int index = mAdapter.findMessageWithId(msgId);
-            if (index != -1)
-                ((LinearLayoutManager) mRecyclerView.getLayoutManager()).scrollToPositionWithOffset(index, 0);
-            else
-                reloadMessages(msgId);
+            if (index != -1) {
+                ((LinearLayoutManager) mRecyclerView.getLayoutManager())
+                        .scrollToPositionWithOffset(index, 0);
+            } else {
+                // We don't have a matching message in the current list,
+                // just reload using the Room-based path (no jump for now).
+                reloadMessages(null);
+            }
             mgr.clearUnreadMessages();
         });
         mUnreadDiscard.setOnClickListener((v) -> {
@@ -325,7 +342,7 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
                         new ChatSelectTouchListener(mRecyclerView);
                 newSelectTouchListener.setMultiSelectListener(selectTouchListener);
                 newSelectTouchListener.setActionModeStateCallback((android.view.ActionMode actionMode,
-                                                                boolean b) -> {
+                                                                   boolean b) -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
                             actionMode.getType() == android.view.ActionMode.TYPE_FLOATING)
                         return;
@@ -361,51 +378,59 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
             IRCChooserTargetService.unsetChannel(mConnection.getUUID(), mChannelName);
     }
 
-    private void reloadMessages(MessageId nearMessage) {
+    private void reloadMessages(Long nearMessageRoomId) {
+
         if (ChatSettings.shouldHideJoinPartMessages())
             mMessageFilterOptions = sFilterJoinParts;
         else
             mMessageFilterOptions = null;
+
         mUnreadCheckedFirst = -1;
         mUnreadCheckedLast = -1;
-        mAdapter.setNewMessagesStart(mConnection.getNotificationManager()
-                .getChannelManager(mChannelName, true).getFirstUnreadMessage());
-        ResponseCallback<MessageList> cb = (MessageList messages) -> {
-            Log.i(TAG, "Got message list for " + mChannelName + ": " +
-                    messages.getMessages().size() + " messages");
-            updateMessageList(() -> {
-                mAdapter.setMessages(messages.getMessages(), messages.getMessageIds());
-                if (mRecyclerView != null)
-                    mRecyclerView.scrollToPosition(mAdapter.getItemCount() - 1);
-                mLoadOlderIdentifier = messages.getOlder();
-            });
 
-            if (!mNeedsUnsubscribeMessages) {
-                mConnection.getApiInstance().getMessageStorageApi().subscribeChannelMessages(mChannelName, ChatMessagesFragment.this, null, null);
-                mNeedsUnsubscribeMessages = true;
-            }
-        };
-        MessageStorageApi storage = mConnection.getApiInstance().getMessageStorageApi();
-        if (nearMessage != null) {
-            storage.getMessagesNear(mChannelName, nearMessage,
-                    getFilterOptions(), (MessageList messages) -> {
-                        cb.onResponse(messages);
-                        List<MessageId> ids = messages.getMessageIds();
+        mAdapter.setNewMessagesStart(
+                mConnection.getNotificationManager()
+                        .getChannelManager(mChannelName, true)
+                        .getFirstUnreadMessage()
+        );
+
+        UUID serverId = mConnection.getUUID();
+
+        // === CASE 1: Jump to a specific Room message ID ===
+        if (nearMessageRoomId != null) {
+
+            mRoomRepo.loadNearAsync(serverId, mChannelName, nearMessageRoomId, 100,
+                    (list) -> {
+                        MessageList msgList = mRoomRepo.toMessageListFromRoom(list);
                         updateMessageList(() -> {
-                            for (int i = ids.size() - 1; i >= 0; --i) {
-                                if (ids.get(i).equals(nearMessage)) {
-                                    // TODO: Is this behaviour reliable? It looks random to me, and doesn't seem to match what the docs define :/
-                                    ((LinearLayoutManager) mRecyclerView.getLayoutManager()).scrollToPositionWithOffset(i, 0);
-                                }
+                            mAdapter.setMessages(msgList.getMessages(), msgList.getMessageIds());
+
+                            int index = mAdapter.findMessageWithId(
+                                    new SimpleMessageId(nearMessageRoomId.intValue())
+                            );
+                            if (index >= 0) {
+                                ((LinearLayoutManager) mRecyclerView.getLayoutManager())
+                                        .scrollToPositionWithOffset(index, 0);
                             }
-                            mLoadNewerIdentifier = messages.getNewer();
                         });
-                    }, null);
-        } else {
-            mConnection.getApiInstance().getMessageStorageApi().getMessages(mChannelName, 100,
-                    getFilterOptions(), null, cb, null);
+                    }
+            );
+
+            return;
         }
+
+        // === CASE 2: Normal first load (most recent 100 messages) ===
+        mRoomRepo.loadRecentAsync(serverId, mChannelName, 100, (msgList) -> {
+            updateMessageList(() -> {
+                mAdapter.setMessages(msgList.getMessages(), msgList.getMessageIds());
+
+                if (mRecyclerView != null && mAdapter.getItemCount() > 0) {
+                    mRecyclerView.scrollToPosition(mAdapter.getItemCount() - 1);
+                }
+            });
+        });
     }
+
 
     private void updateUnreadCounter() {
         if (mConnection == null || mRecyclerView == null)
@@ -746,6 +771,8 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
             mActionMode = null;
         }
 
-    };
+    }
+
+    ;
 
 }
