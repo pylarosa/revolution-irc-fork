@@ -17,7 +17,7 @@ import io.mrarm.irc.chatlib.dto.MessageId;
 import io.mrarm.irc.chatlib.dto.MessageInfo;
 import io.mrarm.irc.chatlib.dto.MessageList;
 import io.mrarm.irc.chatlib.dto.MessageSenderInfo;
-import io.mrarm.irc.chatlib.message.SimpleMessageId;
+import io.mrarm.irc.chatlib.dto.RoomMessageId;
 import io.mrarm.irc.storage.db.ChatLogDatabase;
 import io.mrarm.irc.storage.db.MessageDao;
 import io.mrarm.irc.storage.db.MessageEntity;
@@ -103,7 +103,7 @@ public class MessageStorageRepository {
                     e.text,
                     typeFromInt(e.type)
             );
-            MessageId id = new SimpleMessageId((int) e.id);
+            MessageId id = new RoomMessageId(e.id);
             pairs.add(new Pair<>(info, id));
         }
 

@@ -41,7 +41,7 @@ public class RoomMessageStorageApi implements WritableMessageStorageApi {
             MessageEntity entity = MessageEntity.from(serverId, channelName, message);
             long roomId = repo.insertMessage(entity);
 
-            MessageId msgId = new SimpleMessageId((int) roomId);
+            MessageId msgId = new RoomMessageId(roomId);
 
             synchronized (channelListeners) {
                 List<MessageListener> listeners = channelListeners.get(channelName);
