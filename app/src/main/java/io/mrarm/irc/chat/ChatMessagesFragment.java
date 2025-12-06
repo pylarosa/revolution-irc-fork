@@ -47,11 +47,11 @@ import io.mrarm.irc.chatlib.dto.MessageList;
 import io.mrarm.irc.chatlib.dto.MessageListAfterIdentifier;
 import io.mrarm.irc.chatlib.dto.MessageSenderInfo;
 import io.mrarm.irc.chatlib.dto.NickWithPrefix;
+import io.mrarm.irc.chatlib.dto.RoomMessageId;
 import io.mrarm.irc.chatlib.dto.StatusMessageInfo;
 import io.mrarm.irc.chatlib.dto.StatusMessageList;
 import io.mrarm.irc.chatlib.irc.ServerConnectionApi;
 import io.mrarm.irc.chatlib.message.MessageListener;
-import io.mrarm.irc.chatlib.message.SimpleMessageId;
 import io.mrarm.irc.config.ChatSettings;
 import io.mrarm.irc.config.MessageFormatSettings;
 import io.mrarm.irc.config.SettingsHelper;
@@ -406,7 +406,7 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
                             mAdapter.setMessages(msgList.getMessages(), msgList.getMessageIds());
 
                             int index = mAdapter.findMessageWithId(
-                                    new SimpleMessageId(nearMessageRoomId.intValue())
+                                    new RoomMessageId(nearMessageRoomId)
                             );
                             if (index >= 0) {
                                 ((LinearLayoutManager) mRecyclerView.getLayoutManager())
