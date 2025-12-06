@@ -198,6 +198,15 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
             Long jumpId = ((ChatFragment) getParentFragment()).getAndClearMessageJump(mChannelName);
             reloadMessages(jumpId);
 
+            connectionInfo.getApiInstance()
+                    .getMessageStorageApi()
+                    .subscribeChannelMessages(
+                            mChannelName,
+                            ChatMessagesFragment.this,
+                            (ignored) -> mNeedsUnsubscribeChannelInfo = true,
+                            null
+                    );
+
         } else if (getArguments().getBoolean(ARG_DISPLAY_STATUS)) {
             mStatusAdapter = new ServerStatusMessagesAdapter(mConnection, new StatusMessageList(new ArrayList<>()));
             mStatusAdapter.setMessageFont(ChatSettings.getFont(), ChatSettings.getFontSize());
