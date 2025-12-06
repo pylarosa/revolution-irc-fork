@@ -21,6 +21,7 @@ import io.mrarm.irc.chatlib.irc.cap.Capability;
 public class ChannelData {
 
     private ServerConnectionData connection;
+
     private String name;
     private String topic;
     private MessageSenderInfo topicSetBy;

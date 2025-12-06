@@ -268,8 +268,15 @@ public class ChatFragment extends Fragment implements
     }
 
     public void setCurrentChannel(String channel, String messageId) {
-        if (messageId != null)
-            mMessageJump = new OneTimeMessageJump(channel, messageId);
+        Long msgId = null;
+        if (messageId != null) {
+            try {
+                msgId = Long.parseLong(messageId);
+            } catch (NumberFormatException ignored) {}
+        }
+
+        if (msgId != null)
+            mMessageJump = new OneTimeMessageJump(channel, msgId);
         int i = mSectionsPagerAdapter.findChannel(channel);
         mViewPager.setCurrentItem(i);
         if (i == 0) {
@@ -282,7 +289,7 @@ public class ChatFragment extends Fragment implements
         }
     }
 
-    public String getAndClearMessageJump(String channel) {
+    public Long getAndClearMessageJump(String channel) {
         if (channel != null && mMessageJump != null && channel.equals(mMessageJump.mChannel)) {
             OneTimeMessageJump ret = mMessageJump;
             mMessageJump = null;
@@ -352,9 +359,9 @@ public class ChatFragment extends Fragment implements
     private static class OneTimeMessageJump {
 
         private String mChannel;
-        private String mMessageId;
+        private Long mMessageId;
 
-        private OneTimeMessageJump(String channel, String messageId) {
+        private OneTimeMessageJump(String channel, Long messageId) {
             this.mChannel = channel;
             this.mMessageId = messageId;
         }
