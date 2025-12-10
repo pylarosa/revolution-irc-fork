@@ -17,17 +17,14 @@ import java.io.File;
 import java.util.UUID;
 
 import io.mrarm.irc.R;
-import io.mrarm.irc.ServerConnectionInfo;
 import io.mrarm.irc.ServerConnectionManager;
-import io.mrarm.irc.chatlib.android.SQLiteMessageStorageApi;
-import io.mrarm.irc.chatlib.irc.ServerConnectionApi;
 import io.mrarm.irc.config.CommandAliasManager;
 import io.mrarm.irc.config.NotificationRuleManager;
 import io.mrarm.irc.config.ServerConfigManager;
 import io.mrarm.irc.config.SettingsHelper;
+import io.mrarm.irc.storage.MessageStorageRepository;
 import io.mrarm.irc.storage.StorageRepository;
 import io.mrarm.irc.util.Async;
-import io.mrarm.irc.util.StubMessageStorageApi;
 
 /**
  * Performs background cleanup of logs, config files, and cached data.
@@ -42,110 +39,91 @@ public class RemoveDataTask {
     private final Context context;
     private final boolean deleteConfig;
     private final UUID deleteServerLogs;
-    private final StorageRepository repository;
+    private final StorageRepository legacyRepo;
+    private final MessageStorageRepository roomRepository;
     private final OnRemoveDataFinishedListener listener;
+
     private AlertDialog progressDialog;
 
     private RemoveDataTask(Context context, boolean deleteConfig, UUID deleteServerLogs,
-                           StorageRepository repository, OnRemoveDataFinishedListener listener) {
+                           StorageRepository legacyRepo, MessageStorageRepository roomRepository,
+                           OnRemoveDataFinishedListener listener) {
         this.context = context;
         this.deleteConfig = deleteConfig;
         this.deleteServerLogs = deleteServerLogs;
-        this.repository = repository;
+        this.legacyRepo = legacyRepo;
+        this.roomRepository = roomRepository;
         this.listener = listener;
     }
 
     public static void start(Context context, boolean deleteConfig, UUID deleteServerLogs,
-                             StorageRepository repository, OnRemoveDataFinishedListener listener) {
-        new RemoveDataTask(context, deleteConfig, deleteServerLogs, repository, listener).execute();
+                             StorageRepository legacyRepo, MessageStorageRepository roomRepository,
+                             OnRemoveDataFinishedListener listener) {
+
+        new RemoveDataTask(context, deleteConfig, deleteServerLogs, legacyRepo, roomRepository, listener)
+                .execute();
     }
 
     private void execute() {
         showProgressDialog();
-        Async.io(this::performDeletion, () -> {
-            Async.ui(() -> {
-                new Handler(Looper.getMainLooper()).postDelayed(
-                        this::onFinished,
-                        300
-                );
-            });
-        });
-    }
-
-    private void showProgressDialog() {
-        if (context instanceof Activity a && !a.isFinishing() && !a.isDestroyed()) {
-            progressDialog = new AlertDialog.Builder(a)
-                    .setCancelable(false)
-                    .setView(R.layout.dialog_please_wait)
-                    .show();
-
-            if (a instanceof ComponentActivity) {
-                ((ComponentActivity) a)
-                        .getLifecycle()
-                        .addObserver(new DefaultLifecycleObserver() {
-
-                            @Override
-                            public void onDestroy(@NonNull LifecycleOwner owner) {
-                                if (progressDialog != null && progressDialog.isShowing())
-                                    progressDialog.dismiss();
-                            }
-                        });
-            }
-        }
+        Async.io(this::performDeletion, () ->
+                Async.ui(() -> new Handler(Looper.getMainLooper()).postDelayed(
+                        this::onFinished, 300)
+                ));
     }
 
     private void performDeletion() {
 
         try {
-            Context ctx = context;
-
             if (deleteConfig) {
-                ServerConnectionManager mgr = ServerConnectionManager.getInstance(null);
-                if (mgr != null)
-                    mgr.disconnectAndRemoveAllConnections(true);
-                else
-                    //noinspection ResultOfMethodCallIgnored
-                    new File(ctx.getFilesDir(),
-                            ServerConnectionManager.CONNECTED_SERVERS_FILE_PATH).delete();
-
-                ServerConfigManager.getInstance(ctx).deleteAllServers(true);
-                NotificationRuleManager.getUserRules(ctx).clear();
-                CommandAliasManager.getInstance(ctx).getUserAliases().clear();
-                SettingsHelper.getInstance(ctx).clear();
-                repository.closeNotificationCounts();
-
-                File files = ctx.getFilesDir();
-                File[] children = files.listFiles();
-                if (children != null) {
-                    for (File file : children) {
-                        if ("cache".equals(file.getName()) || "lib".equals(file.getName()))
-                            continue;
-                        deleteRecursive(file);
-                    }
-                }
-
-                repository.ensureNotificationCountsMigrated();
+                clearAllConfigData();
             }
 
             if (deleteServerLogs != null) {
-                deleteChatLogDir(deleteServerLogs);
+                roomRepository.deleteLogsForServer(deleteServerLogs);
+
             } else {
-                File[] logFiles = repository.getChatLogDir().listFiles();
-
-                if (logFiles == null)
-                    logFiles = new File[0];
-
-                for (File f : logFiles) {
-                    try {
-                        deleteChatLogDir(UUID.fromString(f.getName()));
-                    } catch (IllegalArgumentException ignored) {
-                        deleteRecursive(f);
-                    }
-                }
+                roomRepository.deleteAllLogs();
             }
         } catch (Exception e) {
             Log.e("RemoveDataTask", "Error deleting data", e);
         }
+    }
+
+    private void clearAllConfigData() {
+        Context ctx = context;
+
+        // Disconnect and drop connections
+        ServerConnectionManager mgr = ServerConnectionManager.getInstance(null);
+        if (mgr != null) {
+            mgr.disconnectAndRemoveAllConnections(true);
+        } else {
+            //noinspection ResultOfMethodCallIgnored
+            new File(ctx.getFilesDir(),
+                    ServerConnectionManager.CONNECTED_SERVERS_FILE_PATH).delete();
+        }
+
+        // Clear app config
+        ServerConfigManager.getInstance(ctx).deleteAllServers(true);
+        NotificationRuleManager.getUserRules(ctx).clear();
+        CommandAliasManager.getInstance(ctx).getUserAliases().clear();
+        SettingsHelper.getInstance(ctx).clear();
+
+        // clear notification counts (legacy)
+        legacyRepo.closeNotificationCounts();
+
+        // Remove all leftover files EXCEPT cache and lib
+        File[] children = ctx.getFilesDir().listFiles();
+        if (children != null) {
+            for (File f : children) {
+                if (!"cache".equals(f.getName()) && !"lib".equals(f.getName())) {
+                    deleteRecursive(f);
+                }
+            }
+        }
+
+        legacyRepo.ensureNotificationCountsMigrated();
+
     }
 
     private void onFinished() {
@@ -178,40 +156,25 @@ public class RemoveDataTask {
         fileOrDir.delete();
     }
 
+    private void showProgressDialog() {
+        if (context instanceof Activity a && !a.isFinishing() && !a.isDestroyed()) {
+            progressDialog = new AlertDialog.Builder(a)
+                    .setCancelable(false)
+                    .setView(R.layout.dialog_please_wait)
+                    .show();
 
-    private void deleteChatLogDir(UUID uuid) {
-        ServerConnectionManager connectionManager = ServerConnectionManager.getInstance(null);
-        if (connectionManager != null)
-            connectionManager.killDisconnectingConnection(uuid);
+            if (a instanceof ComponentActivity) {
+                ((ComponentActivity) a)
+                        .getLifecycle()
+                        .addObserver(new DefaultLifecycleObserver() {
 
-        ServerConnectionInfo connection = connectionManager != null
-                ? connectionManager.getConnection(uuid)
-                : null;
-
-        boolean hadMessageStorage = false;
-
-        if (connection != null && connection.getApiInstance() instanceof ServerConnectionApi api) {
-            if (api.getServerConnectionData().getMessageStorageApi() instanceof SQLiteMessageStorageApi) {
-                hadMessageStorage = true;
-                api.getServerConnectionData().setMessageStorageApi(new StubMessageStorageApi());
-                repository.closeMessageStorage(uuid);
+                            @Override
+                            public void onDestroy(@NonNull LifecycleOwner owner) {
+                                if (progressDialog != null && progressDialog.isShowing())
+                                    progressDialog.dismiss();
+                            }
+                        });
             }
-            connection.resetMiscStorage();
         }
-
-        repository.closeMessageLogs(uuid);
-
-        File file = repository.getServerChatLogDir(uuid);
-        deleteRecursive(file);
-
-        if (hadMessageStorage && connection != null
-                && connection.getApiInstance() instanceof ServerConnectionApi api) {
-            Async.ui(() -> {
-                SQLiteMessageStorageApi reopened = repository.getMessageStorageApi(uuid);
-                api.getServerConnectionData().setMessageStorageApi(reopened);
-                api.getServerConnectionData().setChannelDataStorage(repository.createChannelDataStorage(uuid));
-            });
-        }
-
     }
 }

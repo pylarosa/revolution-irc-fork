@@ -7,10 +7,15 @@ import io.mrarm.irc.chatlib.ResponseCallback;
 import io.mrarm.irc.chatlib.ResponseErrorCallback;
 import io.mrarm.irc.chatlib.dto.MessageFilterOptions;
 import io.mrarm.irc.chatlib.dto.MessageId;
+import io.mrarm.irc.chatlib.dto.MessageInfo;
 import io.mrarm.irc.chatlib.dto.MessageList;
 import io.mrarm.irc.chatlib.dto.MessageListAfterIdentifier;
 
 public interface MessageStorageApi {
+
+    Future<Void> addMessage(String channelName, MessageInfo message, ResponseCallback<Void> callback,
+                            ResponseErrorCallback errorCallback);
+
 
     MessageId.Parser getMessageIdParser();
 

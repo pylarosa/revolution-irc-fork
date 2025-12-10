@@ -1,4 +1,4 @@
-package io.mrarm.irc.chatlib.android;
+package io.mrarm.irc.storage;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -19,7 +19,7 @@ import io.mrarm.irc.chatlib.dto.NickChangeMessageInfo;
 import io.mrarm.irc.chatlib.dto.NickPrefixList;
 import io.mrarm.irc.chatlib.dto.TopicWhoTimeMessageInfo;
 
-class MessageStorageHelper {
+public class MessageStorageHelper {
 
     private static final String PROP_BATCH = "batch";
     private static final String PROP_NICKCHANGE_NEWNICK = "newNick";
@@ -62,9 +62,9 @@ class MessageStorageHelper {
             builder = new MessageInfo.Builder(sender, text, type);
         }
         builder.setDate(date);
-        if (o.has(PROP_BATCH)) {
-            // TODO: find the batch
-        }
+//        if (o.has(PROP_BATCH)) {
+//            // TODO: find the batch
+//        }
         return builder.build();
     }
 
@@ -95,7 +95,7 @@ class MessageStorageHelper {
         return new MessageSenderInfo(nick, user, host, prefixes.length() > 0 ? new NickPrefixList(prefixes) : null, uuid);
     }
 
-    static String serializeExtraData(MessageInfo info) {
+    public static String serializeExtraData(MessageInfo info) {
         JsonObject object = new JsonObject();
         if (info.getBatch() != null)
             object.addProperty(PROP_BATCH, info.getBatch().getUUID().toString());

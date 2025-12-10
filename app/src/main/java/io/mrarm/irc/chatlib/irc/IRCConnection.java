@@ -1,6 +1,8 @@
 package io.mrarm.irc.chatlib.irc;
 
 
+import android.util.Log;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -68,7 +70,7 @@ public class IRCConnection extends ServerConnectionApi {
                     break;
                 }
             }
-            System.out.println("Sent: " + printStr);
+            Log.d("Sent: ", printStr);
             if (flush)
                 socketOutputStream.flush();
         }
@@ -121,7 +123,7 @@ public class IRCConnection extends ServerConnectionApi {
         try {
             while (true) {
                 String command = readCommand();
-                System.out.println("Got: " + command);
+                Log.i("Got: ", command);
                 try {
                     inputHandler.handleLine(command);
                 } catch (InvalidMessageException e) {

@@ -10,6 +10,7 @@ import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.format.DateUtils;
 import android.text.style.ForegroundColorSpan;
+import android.util.Log;
 
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.graphics.drawable.DrawableCompat;
@@ -326,6 +327,8 @@ public class MessageBuilder {
 
     public CharSequence buildMessage(MessageInfo message) {
         String senderNick = message.getSender() == null ? null : message.getSender().getNick();
+        Log.d("IRC", "Message: type=" + message.getType() + " class=" + message.getClass());
+
         switch (message.getType()) {
             case NORMAL:
                 return processFormat(mMessageFormat, message.getDate(), message.getSender(),
