@@ -21,9 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import io.mrarm.irc.chatlib.android.SQLiteChannelDataStorage;
-import io.mrarm.irc.chatlib.android.SQLiteMessageStorageApi;
-import io.mrarm.irc.chatlib.android.SQLiteMiscStorage;
 import io.mrarm.irc.config.ServerConfigManager;
 import io.mrarm.irc.storage.db.MessageLogDao;
 import io.mrarm.irc.storage.db.MessageLogDatabase;
@@ -38,8 +35,6 @@ public class StorageRepository {
     private final Context mContext;
     private final ServerConfigManager mConfigManager;
 
-    private final Map<UUID, SQLiteMessageStorageApi> mMessageStorageApis = new HashMap<>();
-    private final Map<UUID, SQLiteMiscStorage> mMiscStorageMap = new HashMap<>();
     private final Map<UUID, Map<String, MessageLogDatabase>> mMessageLogDatabases = new HashMap<>();
 
     private NotificationCountDatabase mNotificationCountDatabase;
@@ -55,40 +50,6 @@ public class StorageRepository {
         return sInstance;
     }
 
-    public synchronized SQLiteMessageStorageApi getMessageStorageApi(UUID serverId) {
-        SQLiteMessageStorageApi api = mMessageStorageApis.get(serverId);
-        if (api == null) {
-            File dir = mConfigManager.getServerChatLogDir(serverId);
-            if (!dir.exists())
-                dir.mkdirs();
-            api = new SQLiteMessageStorageApi(dir);
-            mMessageStorageApis.put(serverId, api);
-        }
-        return api;
-    }
-
-    public synchronized void closeMessageStorage(UUID serverId) {
-        SQLiteMessageStorageApi api = mMessageStorageApis.remove(serverId);
-        if (api != null)
-            api.close();
-        closeMessageLogs(serverId);
-    }
-
-    public synchronized SQLiteMiscStorage getMiscStorage(UUID serverId) {
-        SQLiteMiscStorage storage = mMiscStorageMap.get(serverId);
-        if (storage == null) {
-            File file = mConfigManager.getServerMiscDataFile(serverId);
-            storage = new SQLiteMiscStorage(file);
-            mMiscStorageMap.put(serverId, storage);
-        }
-        return storage;
-    }
-
-    public synchronized void closeMiscStorage(UUID serverId) {
-        SQLiteMiscStorage storage = mMiscStorageMap.remove(serverId);
-        if (storage != null)
-            storage.close();
-    }
 
     public synchronized List<MessageLogEntity> getLatestMessages(UUID serverId, int limit) {
         if (limit <= 0)
@@ -125,13 +86,6 @@ public class StorageRepository {
         return database.messageLogDao();
     }
 
-    public synchronized MessageLogDao getMessageLogDao(UUID serverId, String logFileName) {
-        if (logFileName == null)
-            return null;
-        File dir = getServerChatLogDir(serverId);
-        return getMessageLogDao(serverId, new File(dir, logFileName));
-    }
-
     public synchronized void closeMessageLog(UUID serverId, File logFile) {
         if (logFile == null)
             return;
@@ -143,21 +97,6 @@ public class StorageRepository {
             database.close();
         if (databases.isEmpty())
             mMessageLogDatabases.remove(serverId);
-    }
-
-    public synchronized void closeMessageLog(UUID serverId, String logFileName) {
-        if (logFileName == null)
-            return;
-        File dir = getServerChatLogDir(serverId);
-        closeMessageLog(serverId, new File(dir, logFileName));
-    }
-
-    public synchronized void closeMessageLogs(UUID serverId) {
-        Map<String, MessageLogDatabase> databases = mMessageLogDatabases.remove(serverId);
-        if (databases == null)
-            return;
-        for (MessageLogDatabase database : databases.values())
-            database.close();
     }
 
     public synchronized File getLatestMessageLogFile(UUID serverId) {
@@ -190,8 +129,8 @@ public class StorageRepository {
         if (mNotificationCountDatabase == null) {
             File file = new File(mContext.getFilesDir(), "notification-count.db");
             mNotificationCountDatabase = Room.databaseBuilder(mContext,
-                    NotificationCountDatabase.class,
-                    file.getAbsolutePath())
+                            NotificationCountDatabase.class,
+                            file.getAbsolutePath())
                     .addMigrations(NOTIFICATION_MIGRATION_1_2)
                     .build();
         }
@@ -212,10 +151,6 @@ public class StorageRepository {
     public void ensureNotificationCountsMigrated() {
         getNotificationCountDao();
         closeNotificationCounts();
-    }
-
-    public SQLiteChannelDataStorage createChannelDataStorage(UUID serverId) {
-        return new SQLiteChannelDataStorage(getMiscStorage(serverId));
     }
 
     public File getServerChatLogDir(UUID serverId) {

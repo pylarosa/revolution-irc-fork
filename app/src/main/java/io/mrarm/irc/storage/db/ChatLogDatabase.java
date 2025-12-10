@@ -9,7 +9,7 @@ import androidx.room.TypeConverters;
 
 @Database(
         entities = {MessageEntity.class},
-        version = 3,
+        version = 1,
         exportSchema = false
 )
 @TypeConverters({Converters.class})
@@ -29,7 +29,7 @@ public abstract class ChatLogDatabase extends RoomDatabase {
                                     "chatlogs.db"
                             )
                             .fallbackToDestructiveMigration()
-                            .setJournalMode(JournalMode.TRUNCATE)
+                            .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
                             .build();
                 }
             }

@@ -32,8 +32,11 @@ import io.mrarm.irc.dialog.ServerStorageLimitDialog;
 import io.mrarm.irc.dialog.StorageLimitsDialog;
 import io.mrarm.irc.job.CalculateStorageJob;
 import io.mrarm.irc.job.RemoveDataTask;
+import io.mrarm.irc.storage.MessageStatsRepository;
+import io.mrarm.irc.storage.MessageStorageRepository;
 import io.mrarm.irc.storage.StorageRepository;
 import io.mrarm.irc.storage.db.MessageLogEntity;
+import io.mrarm.irc.util.Async;
 import io.mrarm.irc.util.ColoredTextBuilder;
 import io.mrarm.irc.util.StyledAttributesHelper;
 import io.mrarm.irc.view.SimpleBarChart;
@@ -49,14 +52,53 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
     private long mConfigurationSize = 0L;
     private int mSecondaryTextColor;
     private final StorageRepository mStorageRepository;
+    private final MessageStorageRepository roomStorageRepository;
+
+    private List<ServerLogsEntry> mDbServerLogEntries = new ArrayList<>();
+
 
     public StorageSettingsAdapter(Context context) {
         mStorageRepository = StorageRepository.getInstance(context);
-        refreshServerLogs(context);
+        roomStorageRepository = MessageStorageRepository.getInstance(context);
+        refreshServerLogsFromDb(context);
 
         mSecondaryTextColor = StyledAttributesHelper.getColor(context, android.R.attr.textColorSecondary, Color.BLACK);
     }
 
+    void refreshServerLogsFromDb(Context context) {
+        // Clear DB entries
+        mDbServerLogEntries.clear();
+
+        Async.io(() -> {
+            MessageStatsRepository stats = new MessageStatsRepository(context);
+
+            // Aggregate per server
+            List<MessageStatsRepository.ServerUsage> usageList = stats.getUsageForAllServers();
+
+            for (MessageStatsRepository.ServerUsage usage : usageList) {
+                UUID serverId = usage.serverId;
+                long size = usage.size != null ? usage.size : 0;
+
+                ServerConfigData server =
+                        ServerConfigManager.getInstance(context).findServer(serverId);
+
+                String name = server != null ? server.name : serverId.toString();
+
+                ServerLogsEntry entry =
+                        new ServerLogsEntry(name, serverId, size);
+
+                // push on UI thread
+                Async.ui(() -> {
+                    mDbServerLogEntries.add(entry);
+                    mServerLogEntries.addAll(mDbServerLogEntries); // <-- THIS MAKES THEM VISIBLE
+                    notifyItemInserted(mDbServerLogEntries.size());
+                });
+            }
+
+        });
+    }
+
+    @Deprecated
     void refreshServerLogs(Context context) {
         // 1) stop any running calc (fresh state)
         if (mAsyncTask != null && !mAsyncTask.isDone()) {
@@ -156,6 +198,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
         return -1;
     }
 
+    // Refactor to fit new size calculations
     public class ServerLogsSummaryHolder extends RecyclerView.ViewHolder {
 
         private SimpleBarChart mChart;
@@ -184,6 +227,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                                     false,
                                     null,
                                     mStorageRepository,
+                                    roomStorageRepository,
                                     () -> refreshServerLogs(v.getContext()));
                         })
                         .setNegativeButton(R.string.action_cancel, null)
@@ -295,6 +339,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                         false,
                         serverId,
                         mStorageRepository,
+                        roomStorageRepository,
                         () -> refreshServerLogs(itemView.getContext()));
                 return true;
             });
@@ -315,11 +360,28 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
             builder.append(entry.name, new ForegroundColorSpan(mText.getResources().getColor(colorId)));
             builder.append("  ");
             builder.append(formatFileSize(entry.size));
+
+            long dbSize = findDbSizeForServer(entry.uuid);
+            if (dbSize > 0) {
+                builder.append("  (db: ");
+                builder.append(formatFileSize(dbSize));
+                builder.append(")");
+            }
+
             mText.setText(builder.getSpannable());
             mText.setTag(entry.uuid);
         }
 
     }
+
+    private long findDbSizeForServer(UUID uuid) {
+        for (ServerLogsEntry e : mDbServerLogEntries) {
+            if (e.uuid != null && e.uuid.equals(uuid))
+                return e.size;
+        }
+        return -1;
+    }
+
 
     public class ConfigurationSummaryHolder extends RecyclerView.ViewHolder {
 
@@ -338,6 +400,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                                     true,
                                     null,
                                     mStorageRepository,
+                                    roomStorageRepository,
                                     () -> refreshServerLogs(v.getContext()));
                         })
                         .setNegativeButton(R.string.action_cancel, null)

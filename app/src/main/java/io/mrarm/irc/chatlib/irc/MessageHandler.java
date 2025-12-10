@@ -16,7 +16,7 @@ public class MessageHandler {
     }
 
     public void handleLine(String line) throws InvalidMessageException {
-        if (line.length() == 0)
+        if (line.isEmpty())
             return;
         Map<String, String> tags = new HashMap<>();
         if (line.charAt(0) == '@') {

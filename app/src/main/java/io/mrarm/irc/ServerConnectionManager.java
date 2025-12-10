@@ -229,7 +229,8 @@ public class ServerConnectionManager {
                 throw new RuntimeException(e);
             }
         }
-        ServerConnectionInfo connectionInfo = new ServerConnectionInfo(this, data, request, saslOptions, joinChannels, mReconnectScheduler);
+        ServerConnectionInfo connectionInfo = new ServerConnectionInfo(
+                this, data, request, saslOptions, joinChannels, mReconnectScheduler);
         connectionInfo.connect();
         addConnection(connectionInfo, saveAutoconnect);
         return connectionInfo;

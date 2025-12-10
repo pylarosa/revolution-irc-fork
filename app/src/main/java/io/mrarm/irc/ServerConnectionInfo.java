@@ -10,7 +10,6 @@ import java.util.UUID;
 import io.mrarm.irc.chat.ChatUIData;
 import io.mrarm.irc.chatlib.ChannelListListener;
 import io.mrarm.irc.chatlib.ChatApi;
-import io.mrarm.irc.chatlib.android.SQLiteMiscStorage;
 import io.mrarm.irc.chatlib.dto.MessageId;
 import io.mrarm.irc.chatlib.irc.IRCConnection;
 import io.mrarm.irc.chatlib.irc.IRCConnectionRequest;
@@ -26,7 +25,6 @@ import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
 import io.mrarm.irc.storage.MessageStorageRepository;
-import io.mrarm.irc.storage.StorageRepository;
 import io.mrarm.irc.util.DelayScheduler;
 import io.mrarm.irc.util.IgnoreListMessageFilter;
 import io.mrarm.irc.util.StubMessageStorageApi;
@@ -40,7 +38,6 @@ public class ServerConnectionInfo {
     private ChatApi mApi;
     private final IRCConnectionRequest mConnectionRequest;
     private final SASLOptions mSASLOptions;
-    private SQLiteMiscStorage mSQLiteMiscStorage;
     private boolean mExpandedInDrawer = true;
     private boolean mConnected = false;
     private boolean mConnecting = false;
@@ -50,7 +47,6 @@ public class ServerConnectionInfo {
     private final DelayScheduler mReconnectScheduler;
     private final NotificationManager.ConnectionManager mNotificationData;
     private UserAutoRunCommandHelper mAutoRunHelper;
-    private final StorageRepository mStorageRepository;
     private final List<InfoChangeListener> mInfoListeners = new ArrayList<>();
     private final List<ChannelListChangeListener> mChannelsListeners = new ArrayList<>();
     private int mCurrentReconnectAttempt = -1;
@@ -68,8 +64,7 @@ public class ServerConnectionInfo {
         mChannels = joinChannels;
         mReconnectScheduler = reconnectScheduler;
         if (mChannels != null)
-            Collections.sort(mChannels, String::compareToIgnoreCase);
-        mStorageRepository = StorageRepository.getInstance(manager.getContext());
+            mChannels.sort(String::compareToIgnoreCase);
     }
 
     private void setApi(ChatApi api) {
@@ -261,10 +256,6 @@ public class ServerConnectionInfo {
             connectionData.setMessageStorageApi(new StubMessageStorageApi());
             connectionData.setChannelDataStorage(null);
         }
-        if (mSQLiteMiscStorage != null) {
-            mStorageRepository.closeMiscStorage(getUUID());
-            mSQLiteMiscStorage = null;
-        }
     }
 
     public void notifyConnectivityChanged(boolean hasAnyConnectivity, boolean hasWifi) {
@@ -299,11 +290,6 @@ public class ServerConnectionInfo {
         return mApi;
     }
 
-    public synchronized void resetMiscStorage() {
-        if (mSQLiteMiscStorage != null)
-            mStorageRepository.closeMiscStorage(getUUID());
-        mSQLiteMiscStorage = null;
-    }
 
     public MessageId.Parser getMessageIdParser() {
         return ((ServerConnectionApi) getApiInstance())
