@@ -4,11 +4,14 @@ import android.app.Activity;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
+import android.view.View;
+
+import androidx.annotation.NonNull;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import android.view.View;
 
 import java.util.List;
 
@@ -18,6 +21,7 @@ import io.mrarm.irc.R;
 import io.mrarm.irc.ServerConnectionInfo;
 import io.mrarm.irc.ServerConnectionManager;
 import io.mrarm.irc.SettingsActivity;
+import io.mrarm.irc.chatlib.irc.ServerConnectionApi;
 import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.config.SettingsHelper;
 import io.mrarm.irc.config.UiSettingChangeCallback;
@@ -94,6 +98,7 @@ public class DrawerHelper implements ServerConnectionManager.ConnectionsListener
         });
         mRecyclerView.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
             int oldPadding;
+
             @Override
             public void onLayoutChange(View v, int left, int top, int right, int bottom, int oldLeft, int oldTop, int oldRight, int oldBottom) {
                 if (oldLeft == left && oldTop == top && oldRight == right && oldBottom == bottom && mRecyclerView.getPaddingBottom() == oldPadding)
@@ -104,6 +109,85 @@ public class DrawerHelper implements ServerConnectionManager.ConnectionsListener
             }
         });
         mRecyclerView.setAdapter(mAdapter);
+
+        ItemTouchHelper.SimpleCallback callback =
+                new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.RIGHT) {
+
+                    @Override
+                    public int getSwipeDirs(@NonNull RecyclerView recyclerView,
+                                            @NonNull RecyclerView.ViewHolder viewHolder) {
+
+                        int pos = viewHolder.getAdapterPosition();
+                        int type = mAdapter.getItemViewType(pos);
+
+                        // Allow swipe ONLY for channels
+                        if (type != DrawerMenuListAdapter.TYPE_CHANNEL)
+                            return 0;
+
+                        DrawerMenuListAdapter.ChannelHolder ch =
+                                (viewHolder instanceof DrawerMenuListAdapter.ChannelHolder)
+                                        ? (DrawerMenuListAdapter.ChannelHolder) viewHolder
+                                        : null;
+
+                        if (ch == null || ch.mChannel == null)
+                            return 0;
+
+                        // Determine if it's a direct message (no #)
+                        boolean isDirect =
+                                !((ServerConnectionApi) ch.mConnection
+                                        .getApiInstance())
+                                        .getServerConnectionData()
+                                        .getSupportList()
+                                        .getSupportedChannelTypes()
+                                        .contains(ch.mChannel.charAt(0));
+
+                        return isDirect ? ItemTouchHelper.RIGHT : 0;
+                    }
+
+                    @Override
+                    public boolean onMove(@NonNull RecyclerView rv,
+                                          @NonNull RecyclerView.ViewHolder vh,
+                                          @NonNull RecyclerView.ViewHolder target) {
+                        return false;
+                    }
+
+                    @Override
+                    public void onSwiped(RecyclerView.ViewHolder vh, int direction) {
+                        int pos = vh.getAdapterPosition();
+                        int type = mAdapter.getItemViewType(pos);
+
+                        // only channels → ignore others
+                        if (type != 2 /* TYPE_CHANNEL */) {
+                            mAdapter.notifyItemChanged(pos);
+                            return;
+                        }
+
+                        DrawerMenuListAdapter.ChannelHolder ch =
+                                (DrawerMenuListAdapter.ChannelHolder) vh;
+
+                        String channel = ch.mChannel;
+
+                        // only private messages allowed → no swipe for #channels or server pseudo-items
+                        if (channel == null || channel.startsWith("#")) {
+                            mAdapter.notifyItemChanged(pos);
+                            return;
+                        }
+
+
+                        ServerConnectionInfo server = ch.mConnection;
+                        if (server != null) {
+                            server.getApiInstance().leaveChannel(
+                                    ch.mChannel,
+                                    AppSettings.getDefaultPartMessage(),
+                                    null,
+                                    null);
+                        }
+
+                        mAdapter.notifyServerListChanged();
+                    }
+                };
+
+        new ItemTouchHelper(callback).attachToRecyclerView(mRecyclerView);
     }
 
     public void registerListeners() {

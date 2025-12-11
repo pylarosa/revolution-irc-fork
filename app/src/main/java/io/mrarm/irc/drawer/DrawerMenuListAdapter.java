@@ -4,14 +4,15 @@ import android.content.Context;
 import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
-import androidx.core.graphics.ColorUtils;
-import androidx.core.graphics.drawable.DrawableCompat;
-import androidx.recyclerview.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
+
+import androidx.core.graphics.ColorUtils;
+import androidx.core.graphics.drawable.DrawableCompat;
+import androidx.recyclerview.widget.RecyclerView;
 
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
@@ -24,7 +25,6 @@ import io.mrarm.irc.R;
 import io.mrarm.irc.ServerConnectionInfo;
 import io.mrarm.irc.ServerConnectionManager;
 import io.mrarm.irc.config.AppSettings;
-import io.mrarm.irc.config.SettingsHelper;
 import io.mrarm.irc.util.ExpandIconStateHelper;
 import io.mrarm.irc.util.StyledAttributesHelper;
 import io.mrarm.irc.view.LockableDrawerLayout;
@@ -33,7 +33,7 @@ public class DrawerMenuListAdapter extends RecyclerView.Adapter<RecyclerView.Vie
 
     private static final int TYPE_DRAWER_HEADER = 0;
     private static final int TYPE_SERVER_HEADER = 1;
-    private static final int TYPE_CHANNEL = 2;
+    static final int TYPE_CHANNEL = 2;
     private static final int TYPE_DIVIDER = 3;
     private static final int TYPE_MENU_ITEM = 4;
 
@@ -407,8 +407,8 @@ public class DrawerMenuListAdapter extends RecyclerView.Adapter<RecyclerView.Vie
         private View mView;
         private TextView mName;
         private TextView mUnreadCounter;
-        private ServerConnectionInfo mConnection;
-        private String mChannel;
+        ServerConnectionInfo mConnection;
+        String mChannel;
 
         public ChannelHolder(DrawerMenuListAdapter adapter, View v) {
             super(v);
