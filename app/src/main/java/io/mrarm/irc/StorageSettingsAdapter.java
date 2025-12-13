@@ -1,5 +1,6 @@
 package io.mrarm.irc;
 
+import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.Color;
@@ -30,7 +31,6 @@ import io.mrarm.irc.config.ServerConfigManager;
 import io.mrarm.irc.dialog.MenuBottomSheetDialog;
 import io.mrarm.irc.dialog.ServerStorageLimitDialog;
 import io.mrarm.irc.dialog.StorageLimitsDialog;
-import io.mrarm.irc.job.CalculateStorageJob;
 import io.mrarm.irc.job.RemoveDataTask;
 import io.mrarm.irc.storage.MessageStatsRepository;
 import io.mrarm.irc.storage.MessageStorageRepository;
@@ -60,20 +60,22 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
     public StorageSettingsAdapter(Context context) {
         mStorageRepository = StorageRepository.getInstance(context);
         roomStorageRepository = MessageStorageRepository.getInstance(context);
+
         refreshServerLogsFromDb(context);
+        refreshConfigurationSize(context);
 
         mSecondaryTextColor = StyledAttributesHelper.getColor(context, android.R.attr.textColorSecondary, Color.BLACK);
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     void refreshServerLogsFromDb(Context context) {
-        // Clear DB entries
-        mDbServerLogEntries.clear();
 
         Async.io(() -> {
             MessageStatsRepository stats = new MessageStatsRepository(context);
 
             // Aggregate per server
             List<MessageStatsRepository.ServerUsage> usageList = stats.getUsageForAllServers();
+            List<ServerLogsEntry> newEntries = new ArrayList<>();
 
             for (MessageStatsRepository.ServerUsage usage : usageList) {
                 UUID serverId = usage.serverId;
@@ -84,73 +86,33 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
 
                 String name = server != null ? server.name : serverId.toString();
 
-                ServerLogsEntry entry =
-                        new ServerLogsEntry(name, serverId, size);
+                newEntries.add(new ServerLogsEntry(name, serverId, size));
+            }
 
                 // push on UI thread
                 Async.ui(() -> {
-                    mDbServerLogEntries.add(entry);
-                    mServerLogEntries.addAll(mDbServerLogEntries); // <-- THIS MAKES THEM VISIBLE
-                    notifyItemInserted(mDbServerLogEntries.size());
+                    mDbServerLogEntries.clear();
+                    mDbServerLogEntries.addAll(newEntries);
+                    mServerLogEntries.clear();
+                    mServerLogEntries.addAll(newEntries);
+
+                    notifyDataSetChanged();
                 });
-            }
+
 
         });
     }
 
-    @Deprecated
-    void refreshServerLogs(Context context) {
-        // 1) stop any running calc (fresh state)
-        if (mAsyncTask != null && !mAsyncTask.isDone()) {
-            mAsyncTask.cancel(true);
-            mAsyncTask = null;
-        }
-
-        // 2) clear current entries and force "Total" (row 0) to 0 now
-        int count = mServerLogEntries.size();
-        if (count > 0) {
-            mServerLogEntries.clear();
-            // remove all server rows (they start at index 1)
-            notifyItemRangeRemoved(/* from */ 1, /* count */ count);
-        }
-        // rebind the summary row so it recomputes 0 immediately
-        notifyItemChanged(0);
-
-        // 3) start fresh calculation
-        mAsyncTask = CalculateStorageJob.run(context, new CalculateStorageJob.Callback() {
-            @Override
-            public void onConfigSize(long size) {
+    void refreshConfigurationSize(Context context) {
+        Async.io(() -> {
+            long size = ConfigurationSizeCalculator.calculate(context);
+            Async.ui(() -> {
                 mConfigurationSize = size;
                 notifyItemChanged(getItemCount() - 1);
-            }
-
-            @Override
-            public void onServerLogsEntry(ServerLogsEntry entry) {
-                addEntry(entry);
-            }
-
-            @Override
-            public void onCompleted() {
-                mAsyncTask = null;
-            }
+            });
         });
     }
 
-    private void addEntry(ServerLogsEntry entry) {
-        int index = mServerLogEntries.size();
-        if (entry.size > 0) {
-            int ec = mServerLogEntries.size();
-            for (int i = 0; i < ec; i++) {
-                if (entry.size > mServerLogEntries.get(i).size) {
-                    index = i;
-                    break;
-                }
-            }
-        }
-        mServerLogEntries.add(index, entry);
-        notifyItemInserted(1 + index);
-        notifyItemChanged(0);
-    }
 
     @Override
     public RecyclerView.ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
@@ -212,7 +174,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                 StorageLimitsDialog dialog = new StorageLimitsDialog(v.getContext());
                 dialog.setOnDismissListener((DialogInterface di) -> {
                     ChatLogStorageManager.getInstance(v.getContext()).requestUpdate(null, () -> {
-                        v.post(() -> refreshServerLogs(v.getContext()));
+                        v.post(() -> refreshServerLogsFromDb(v.getContext()));
                     });
                 });
                 dialog.show();
@@ -228,7 +190,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                                     null,
                                     mStorageRepository,
                                     roomStorageRepository,
-                                    () -> refreshServerLogs(v.getContext()));
+                                    () -> refreshServerLogsFromDb(v.getContext()));
                         })
                         .setNegativeButton(R.string.action_cancel, null)
                         .show();
@@ -340,7 +302,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                         serverId,
                         mStorageRepository,
                         roomStorageRepository,
-                        () -> refreshServerLogs(itemView.getContext()));
+                        () -> refreshServerLogsFromDb(itemView.getContext()));
                 return true;
             });
             menu.show();
@@ -401,7 +363,10 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                                     null,
                                     mStorageRepository,
                                     roomStorageRepository,
-                                    () -> refreshServerLogs(v.getContext()));
+                                    () -> {
+                                        refreshServerLogsFromDb(v.getContext());
+                                        refreshConfigurationSize(v.getContext());
+                                    });
                         })
                         .setNegativeButton(R.string.action_cancel, null)
                         .show();
@@ -414,24 +379,42 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
 
     }
 
-    private long getBlockSize(StatFs statFs, File file) {
-        statFs.restat(file.getAbsolutePath());
-        return statFs.getBlockSizeLong();
-    }
+    public final class ConfigurationSizeCalculator {
 
-    private long calculateDirectorySize(File file, long blockSize) {
-        File[] files = file.listFiles();
-        if (files == null) return 0L;
+        private ConfigurationSizeCalculator() {}
 
-        long ret = blockSize;
-        for (File f : files) {
-            if (f.isDirectory())
-                ret += calculateDirectorySize(f, blockSize);
-            else
-                ret += (f.length() + blockSize - 1) / blockSize * blockSize;
+        public static long calculate(Context context) {
+            File dataDir = new File(context.getApplicationInfo().dataDir);
+            StatFs statFs = new StatFs(dataDir.getAbsolutePath());
+            long blockSize = statFs.getBlockSizeLong();
+
+            long total = 0L;
+            File[] files = dataDir.listFiles();
+            if (files == null) return 0L;
+
+            for (File f : files) {
+                if ("cache".equals(f.getName()) || "lib".equals(f.getName()))
+                    continue;
+                total += calculateDirectorySize(f, blockSize);
+            }
+            return total;
         }
-        return ret;
+
+        private static long calculateDirectorySize(File file, long blockSize) {
+            File[] files = file.listFiles();
+            if (files == null) return 0L;
+
+            long size = blockSize;
+            for (File f : files) {
+                if (f.isDirectory())
+                    size += calculateDirectorySize(f, blockSize);
+                else
+                    size += (f.length() + blockSize - 1) / blockSize * blockSize;
+            }
+            return size;
+        }
     }
+
 
     private class FetchRecentLogsTask extends AsyncTask<Void, Void, List<MessageLogEntity>> {
 
