@@ -3,17 +3,17 @@ package io.mrarm.irc.dialog;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.os.Build;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
-import androidx.annotation.NonNull;
-import androidx.appcompat.widget.Toolbar;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.SeekBar;
 import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.appcompat.widget.Toolbar;
 
 import io.mrarm.irc.R;
 import io.mrarm.irc.config.AppSettings;
@@ -96,12 +96,10 @@ public class StorageLimitsDialog extends Dialog {
         super.onCreate(savedInstanceState);
         Window window = getWindow();
         if (window != null) {
-            if (Build.VERSION.SDK_INT >= 21) {
-                window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
-                window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS);
+            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
 
-                window.setStatusBarColor(StyledAttributesHelper.getColor(getContext(), R.attr.colorPrimaryDark, 0));
-            }
+            window.setStatusBarColor(StyledAttributesHelper.getColor(getContext(), R.attr.colorPrimaryDark, 0));
             window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT);
             window.setBackgroundDrawable(null);
