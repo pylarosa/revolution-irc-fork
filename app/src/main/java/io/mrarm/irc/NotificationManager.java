@@ -91,7 +91,7 @@ public class NotificationManager {
     private NotificationRule findNotificationRule(ServerConnectionInfo connection, String channel,
                                                   MessageInfo message) {
         ChatApi api = connection.getApiInstance();
-        if (api instanceof ServerConnectionApi && channel != null && channel.length() > 0 &&
+        if (api instanceof ServerConnectionApi && channel != null && !channel.isEmpty() &&
                 !((ServerConnectionApi) api).getServerConnectionData().getSupportList()
                         .getSupportedChannelTypes().contains(channel.charAt(0)))
             channel = null;
@@ -112,7 +112,7 @@ public class NotificationManager {
         return null;
     }
 
-    public void onNotificationDismissed(Context context, ServerConnectionInfo connection,
+    public void onNotificationDismissed(ServerConnectionInfo connection,
                                         String channel) {
         ChannelNotificationManager channelManager = connection.getNotificationManager()
                 .getChannelManager(channel, false);
@@ -122,8 +122,6 @@ public class NotificationManager {
 
 
     public void updateSummaryNotification(Context context, String channel) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N)
-            return;
         ChannelNotificationManager first = null;
         boolean isLong = false;
         int notificationCount = 0;
@@ -163,7 +161,7 @@ public class NotificationManager {
                 .setSmallIcon(R.drawable.ic_notification_message)
                 .setGroup(NOTIFICATION_GROUP_CHAT)
                 .setGroupSummary(true)
-                .setColor(context.getResources().getColor(R.color.colorNotificationMention))
+                .setColor(context.getResources().getColor(R.color.colorNotificationMention, context.getTheme()))
                 .setDeleteIntent(dismissIntent)
                 .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN);
         if (isLong) {
@@ -294,6 +292,7 @@ public class NotificationManager {
                 if (ret == null && create) {
                     ret = new ChannelNotificationManager(mConnection, channel);
                     mChannels.put(channel, ret);
+                    ret.initUnreadState();
                 }
                 return ret;
             }

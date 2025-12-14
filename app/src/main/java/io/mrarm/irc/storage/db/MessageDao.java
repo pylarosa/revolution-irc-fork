@@ -105,4 +105,30 @@ public interface MessageDao {
                 extra_json = NULL
             """)
     void replaceAll();
+
+    @Query("""
+    SELECT id,
+    aprox_row_size AS aproxRowSize
+    FROM messages_logs
+    ORDER BY id ASC
+    LIMIT :limit
+""")
+    List<IdSizePair> selectOldestGlobal(int limit);
+
+
+    @Query("""
+    SELECT id,
+    aprox_row_size AS aproxRowSize
+    FROM messages_logs
+    WHERE serverId = :serverId
+    ORDER BY id ASC
+    LIMIT :limit
+""")
+    List<IdSizePair> selectOldestForServer(UUID serverId, int limit);
+
+    @Query("""
+    DELETE FROM messages_logs
+    WHERE id IN (:ids)
+""")
+    int deleteByIds(List<Long> ids);
 }

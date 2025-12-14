@@ -301,7 +301,7 @@ public class ServerConnectionManager {
 
     public void disconnectAndRemoveAllConnections(boolean kill) {
         synchronized (this) {
-            while (mConnections.size() > 0) {
+            while (!mConnections.isEmpty()) {
                 ServerConnectionInfo connection = mConnections.get(mConnections.size() - 1);
                 connection.disconnect();
                 removeConnection(connection, false);

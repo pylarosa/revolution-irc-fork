@@ -8,14 +8,18 @@ import androidx.room.RoomDatabase;
 import androidx.room.TypeConverters;
 
 @Database(
-        entities = {MessageEntity.class},
-        version = 1,
+        entities = {
+                MessageEntity.class,
+                ConversationStateEntity.class
+        },
+        version = 2,
         exportSchema = false
 )
 @TypeConverters({Converters.class})
 public abstract class ChatLogDatabase extends RoomDatabase {
 
     public abstract MessageDao messageDao();
+    public abstract ConversationStateDao conversationStateDao();
 
     private static volatile ChatLogDatabase INSTANCE;
 
@@ -35,5 +39,14 @@ public abstract class ChatLogDatabase extends RoomDatabase {
             }
         }
         return INSTANCE;
+    }
+
+    public static void closeInstance() {
+        synchronized (ChatLogDatabase.class) {
+            if (INSTANCE != null) {
+                INSTANCE.close();
+                INSTANCE = null;
+            }
+        }
     }
 }

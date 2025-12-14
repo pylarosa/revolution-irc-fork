@@ -23,7 +23,6 @@ import io.mrarm.irc.config.NotificationRuleManager;
 import io.mrarm.irc.config.ServerConfigManager;
 import io.mrarm.irc.config.SettingsHelper;
 import io.mrarm.irc.storage.MessageStorageRepository;
-import io.mrarm.irc.storage.StorageRepository;
 import io.mrarm.irc.util.Async;
 
 /**
@@ -39,28 +38,25 @@ public class RemoveDataTask {
     private final Context context;
     private final boolean deleteConfig;
     private final UUID deleteServerLogs;
-    private final StorageRepository legacyRepo;
     private final MessageStorageRepository roomRepository;
     private final OnRemoveDataFinishedListener listener;
 
     private AlertDialog progressDialog;
 
     private RemoveDataTask(Context context, boolean deleteConfig, UUID deleteServerLogs,
-                           StorageRepository legacyRepo, MessageStorageRepository roomRepository,
+                           MessageStorageRepository roomRepository,
                            OnRemoveDataFinishedListener listener) {
         this.context = context;
         this.deleteConfig = deleteConfig;
         this.deleteServerLogs = deleteServerLogs;
-        this.legacyRepo = legacyRepo;
         this.roomRepository = roomRepository;
         this.listener = listener;
     }
 
-    public static void start(Context context, boolean deleteConfig, UUID deleteServerLogs,
-                             StorageRepository legacyRepo, MessageStorageRepository roomRepository,
+    public static void start(Context context, boolean deleteConfig, UUID deleteServerLogs, MessageStorageRepository roomRepository,
                              OnRemoveDataFinishedListener listener) {
 
-        new RemoveDataTask(context, deleteConfig, deleteServerLogs, legacyRepo, roomRepository, listener)
+        new RemoveDataTask(context, deleteConfig, deleteServerLogs, roomRepository, listener)
                 .execute();
     }
 
@@ -104,13 +100,11 @@ public class RemoveDataTask {
         }
 
         // Clear app config
-        ServerConfigManager.getInstance(ctx).deleteAllServers(true);
+        ServerConfigManager.getInstance(ctx).deleteAllServers();
         NotificationRuleManager.getUserRules(ctx).clear();
         CommandAliasManager.getInstance(ctx).getUserAliases().clear();
         SettingsHelper.getInstance(ctx).clear();
 
-        // clear notification counts (legacy)
-        legacyRepo.closeNotificationCounts();
 
         // Remove all leftover files EXCEPT cache and lib
         File[] children = ctx.getFilesDir().listFiles();
@@ -121,9 +115,6 @@ public class RemoveDataTask {
                 }
             }
         }
-
-        legacyRepo.ensureNotificationCountsMigrated();
-
     }
 
     private void onFinished() {

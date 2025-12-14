@@ -4,9 +4,9 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.graphics.Color;
-import android.os.AsyncTask;
 import android.os.StatFs;
 import android.text.style.ForegroundColorSpan;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,15 +17,11 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.io.File;
 import java.io.IOException;
-import java.lang.ref.WeakReference;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
-import java.util.concurrent.Future;
 
+import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
 import io.mrarm.irc.dialog.MenuBottomSheetDialog;
@@ -34,8 +30,6 @@ import io.mrarm.irc.dialog.StorageLimitsDialog;
 import io.mrarm.irc.job.RemoveDataTask;
 import io.mrarm.irc.storage.MessageStatsRepository;
 import io.mrarm.irc.storage.MessageStorageRepository;
-import io.mrarm.irc.storage.StorageRepository;
-import io.mrarm.irc.storage.db.MessageLogEntity;
 import io.mrarm.irc.util.Async;
 import io.mrarm.irc.util.ColoredTextBuilder;
 import io.mrarm.irc.util.StyledAttributesHelper;
@@ -48,17 +42,14 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
     public static final int TYPE_CONFIGURATION_SUMMARY = 2;
 
     private List<ServerLogsEntry> mServerLogEntries = new ArrayList<>();
-    private Future<?> mAsyncTask;
     private long mConfigurationSize = 0L;
     private int mSecondaryTextColor;
-    private final StorageRepository mStorageRepository;
     private final MessageStorageRepository roomStorageRepository;
 
     private List<ServerLogsEntry> mDbServerLogEntries = new ArrayList<>();
 
 
     public StorageSettingsAdapter(Context context) {
-        mStorageRepository = StorageRepository.getInstance(context);
         roomStorageRepository = MessageStorageRepository.getInstance(context);
 
         refreshServerLogsFromDb(context);
@@ -89,15 +80,15 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                 newEntries.add(new ServerLogsEntry(name, serverId, size));
             }
 
-                // push on UI thread
-                Async.ui(() -> {
-                    mDbServerLogEntries.clear();
-                    mDbServerLogEntries.addAll(newEntries);
-                    mServerLogEntries.clear();
-                    mServerLogEntries.addAll(newEntries);
+            // push on UI thread
+            Async.ui(() -> {
+                mDbServerLogEntries.clear();
+                mDbServerLogEntries.addAll(newEntries);
+                mServerLogEntries.clear();
+                mServerLogEntries.addAll(newEntries);
 
-                    notifyDataSetChanged();
-                });
+                notifyDataSetChanged();
+            });
 
 
         });
@@ -173,9 +164,12 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
             view.findViewById(R.id.set_limits).setOnClickListener((View v) -> {
                 StorageLimitsDialog dialog = new StorageLimitsDialog(v.getContext());
                 dialog.setOnDismissListener((DialogInterface di) -> {
-                    ChatLogStorageManager.getInstance(v.getContext()).requestUpdate(null, () -> {
-                        v.post(() -> refreshServerLogsFromDb(v.getContext()));
-                    });
+                    Async.io(() -> {
+                        long globalLimit = AppSettings.getStorageLimitGlobal();
+                        MessageStorageRepository.CleanupResult cleanupResult =  roomStorageRepository.enforceGlobalLimit(globalLimit);
+                        Log.d("Enforce Global cleaning hit: ", cleanupResult.toString());
+
+                    }, () -> refreshServerLogsFromDb(v.getContext()));
                 });
                 dialog.show();
             });
@@ -188,7 +182,6 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                                     v.getContext(),
                                     false,
                                     null,
-                                    mStorageRepository,
                                     roomStorageRepository,
                                     () -> refreshServerLogsFromDb(v.getContext()));
                         })
@@ -276,6 +269,17 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                     builder.append(")");
                     menu.addItem(builder.getSpannable(), R.drawable.ic_storage, (MenuBottomSheetDialog.Item it) -> {
                         ServerStorageLimitDialog dialog = new ServerStorageLimitDialog(itemView.getContext(), server);
+
+                        dialog.setOnDismissListener(di -> {
+                            Async.io(() -> {
+                                long limit = server.storageLimit;
+                                if (limit > 0) {
+                                    MessageStorageRepository.CleanupResult cleanupResult = roomStorageRepository.enforceServerLimit(server.uuid, limit);
+                                    Log.d("Cleanup performed: ", cleanupResult.toString());
+                                }
+                            }, () -> refreshServerLogsFromDb(itemView.getContext()));
+                        });
+
                         dialog.show();
                         return true;
                     });
@@ -289,18 +293,12 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                     });
                 }
             }
-            if (serverId != null) {
-                menu.addItem(R.string.pref_storage_view_recent_logs, R.drawable.ic_history, (MenuBottomSheetDialog.Item it) -> {
-                    new FetchRecentLogsTask(itemView.getContext(), serverId).execute();
-                    return true;
-                });
-            }
+
             menu.addItem(R.string.pref_storage_clear_server_chat_logs, R.drawable.ic_delete, (MenuBottomSheetDialog.Item it) -> {
                 RemoveDataTask.start(
                         itemView.getContext(),
                         false,
                         serverId,
-                        mStorageRepository,
                         roomStorageRepository,
                         () -> refreshServerLogsFromDb(itemView.getContext()));
                 return true;
@@ -361,7 +359,6 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                                     v.getContext(),
                                     true,
                                     null,
-                                    mStorageRepository,
                                     roomStorageRepository,
                                     () -> {
                                         refreshServerLogsFromDb(v.getContext());
@@ -381,7 +378,8 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
 
     public final class ConfigurationSizeCalculator {
 
-        private ConfigurationSizeCalculator() {}
+        private ConfigurationSizeCalculator() {
+        }
 
         public static long calculate(Context context) {
             File dataDir = new File(context.getApplicationInfo().dataDir);
@@ -412,60 +410,6 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                     size += (f.length() + blockSize - 1) / blockSize * blockSize;
             }
             return size;
-        }
-    }
-
-
-    private class FetchRecentLogsTask extends AsyncTask<Void, Void, List<MessageLogEntity>> {
-
-        private static final int MAX_RESULTS = 50;
-
-        private final WeakReference<Context> mContextRef;
-        private final UUID mServerId;
-
-        FetchRecentLogsTask(Context context, UUID serverId) {
-            mContextRef = new WeakReference<>(context);
-            mServerId = serverId;
-        }
-
-        @Override
-        protected List<MessageLogEntity> doInBackground(Void... voids) {
-            return mStorageRepository.getLatestMessages(mServerId, MAX_RESULTS);
-        }
-
-        @Override
-        protected void onPostExecute(List<MessageLogEntity> messageLogEntities) {
-            Context context = mContextRef.get();
-            if (context == null)
-                return;
-            AlertDialog.Builder builder = new AlertDialog.Builder(context)
-                    .setTitle(R.string.pref_storage_recent_logs_title)
-                    .setPositiveButton(android.R.string.ok, null);
-            if (messageLogEntities == null || messageLogEntities.isEmpty()) {
-                builder.setMessage(R.string.pref_storage_recent_logs_empty);
-                builder.show();
-                return;
-            }
-            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
-            StringBuilder builderText = new StringBuilder();
-            for (MessageLogEntity entity : messageLogEntities) {
-                if (builderText.length() > 0)
-                    builderText.append('\n');
-                builderText.append(format.format(new Date(entity.date)));
-                if (entity.senderData != null && !entity.senderData.isEmpty()) {
-                    builderText.append(' ');
-                    builderText.append(entity.senderData);
-                }
-                String body = entity.text;
-                if (body == null || body.isEmpty())
-                    body = entity.extra;
-                if (body != null && !body.isEmpty()) {
-                    builderText.append(": ");
-                    builderText.append(body);
-                }
-            }
-            builder.setMessage(builderText.toString());
-            builder.show();
         }
     }
 

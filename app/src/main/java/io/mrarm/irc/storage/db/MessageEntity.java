@@ -56,9 +56,11 @@ public class MessageEntity {
 
     @ColumnInfo(name = "aprox_row_size")
     @NonNull
-    public Long size;
+    public Long aproxRowSize;
 
     public static MessageEntity from(UUID serverId, String channel, MessageInfo info) {
+        boolean isChannel = !channel.isEmpty() && "#&+!".indexOf(channel.charAt(0)) >= 0;
+
         MessageEntity e = new MessageEntity();
         e.serverId = serverId;
         e.channel = channel;
@@ -66,9 +68,9 @@ public class MessageEntity {
         e.text = info.getMessage();
         e.type = (info.getType() != null ? info.getType().asInt() : MessageInfo.MessageType.NORMAL.asInt());
         e.sender = (info.getSender() != null ? info.getSender().getNick() : null);
-        e.kind = MessageKind.CHANNEL;
+        e.kind = isChannel ? MessageKind.CHANNEL : MessageKind.PRIVATE;
         e.extraJson = serializeExtraData(info);
-        e.size = computeSize(e);
+        e.aproxRowSize = computeSize(e);
         return e;
     }
 
@@ -125,5 +127,4 @@ public class MessageEntity {
 
         return bytes;
     }
-
 }

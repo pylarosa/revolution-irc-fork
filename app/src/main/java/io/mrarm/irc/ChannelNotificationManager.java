@@ -20,7 +20,6 @@ import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.app.RemoteInput;
 
-import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -28,13 +27,16 @@ import java.util.UUID;
 import io.mrarm.irc.chat.SendMessageHelper;
 import io.mrarm.irc.chatlib.dto.MessageId;
 import io.mrarm.irc.chatlib.dto.MessageInfo;
-import io.mrarm.irc.config.NotificationCountStorage;
 import io.mrarm.irc.config.NotificationRule;
 import io.mrarm.irc.config.NotificationRuleManager;
+import io.mrarm.irc.storage.ConversationStateRepository;
+import io.mrarm.irc.storage.db.ChatLogDatabase;
+import io.mrarm.irc.storage.db.ConversationStateEntity;
+import io.mrarm.irc.util.Async;
 import io.mrarm.irc.util.ColoredTextBuilder;
 import io.mrarm.irc.util.IRCColorUtils;
 
-public class ChannelNotificationManager implements NotificationCountStorage.OnChannelCounterResult {
+public class ChannelNotificationManager {
 
     public static final int CHAT_NOTIFICATION_ID_START = 10000;
     public static final int CHAT_DISMISS_INTENT_ID_START = 10000000;
@@ -43,7 +45,6 @@ public class ChannelNotificationManager implements NotificationCountStorage.OnCh
     private static int mNextChatNotificationId = CHAT_NOTIFICATION_ID_START;
 
     private final ServerConnectionInfo mConnection;
-    private final NotificationCountStorage mStorage;
     private final String mChannel;
     private final int mNotificationId = mNextChatNotificationId++;
     private boolean mShowingNotification = false;
@@ -53,13 +54,44 @@ public class ChannelNotificationManager implements NotificationCountStorage.OnCh
     private int mUnreadMessageCount;
     private MessageId mFirstUnreadMessage;
 
+
+    private final ConversationStateRepository mConversationStateRepo;
+
+
     public ChannelNotificationManager(ServerConnectionInfo connection, String channel) {
         mConnection = connection;
         mChannel = channel;
-        mStorage = NotificationCountStorage.getInstance(connection.getConnectionManager().getContext());
-        if (mChannel != null) {
-            mStorage.requestGetChannelCounter(connection.getUUID(), channel, new WeakReference<>(this));
-        }
+
+
+        mConversationStateRepo =
+                new ConversationStateRepository(
+                        connection.getConnectionManager().getContext()
+                );
+    }
+
+    void initUnreadState() {
+        Async.io(() -> {
+            ConversationStateEntity state =
+                    mConversationStateRepo.getState(
+                            mConnection.getUUID(), mChannel
+                    );
+
+            int unread =
+                    (int) mConversationStateRepo.getUnreadCount(
+                            mConnection.getUUID(), mChannel
+                    );
+
+            MessageId firstUnread = null;
+            if (state.firstUnreadId != 0) {
+                firstUnread = mConnection.getMessageIdParser()
+                        .parse(Long.toString(state.firstUnreadId));
+            }
+
+            synchronized (this) {
+                mUnreadMessageCount = unread;
+                mFirstUnreadMessage = firstUnread;
+            }
+        });
     }
 
     public ServerConnectionInfo getConnection() {
@@ -94,21 +126,28 @@ public class ChannelNotificationManager implements NotificationCountStorage.OnCh
 
     public void addUnreadMessage(MessageId msgId) {
         synchronized (this) {
-            if (mOpened && mUnreadMessageCount == 0)
-                return;
-            mUnreadMessageCount++;
-            NotificationManager.getInstance().callUnreadMessageCountCallbacks(mConnection, mChannel,
-                    mUnreadMessageCount, mUnreadMessageCount - 1);
-            if (mChannel != null) {
-                mStorage.requestIncrementChannelCounter(mConnection.getUUID(), getChannel());
-            }
-            if (mFirstUnreadMessage == null) {
+            int oldCount = mUnreadMessageCount;
+
+            mConversationStateRepo.onUnreadMessageArrived(
+                    mConnection.getUUID(),
+                    mChannel,
+                    Long.parseLong(msgId.toString())
+            );
+
+            mUnreadMessageCount = (int) mConversationStateRepo.getUnreadCount(
+                    mConnection.getUUID(),
+                    mChannel
+            );
+
+            if (mFirstUnreadMessage == null)
                 mFirstUnreadMessage = msgId;
-                mStorage.requestSetFirstMessageId(mConnection.getUUID(), getChannel(),
-                        mFirstUnreadMessage.toString());
-            }
+
+            NotificationManager.getInstance().callUnreadMessageCountCallbacks(
+                    mConnection, mChannel, mUnreadMessageCount, oldCount
+            );
         }
     }
+
 
     public int getUnreadMessageCount() {
         synchronized (this) {
@@ -148,14 +187,41 @@ public class ChannelNotificationManager implements NotificationCountStorage.OnCh
     public void clearUnreadMessages() {
         synchronized (this) {
             int prevCount = mUnreadMessageCount;
+
+            // Find newest message id for this channel
+            Async.io(() -> {
+                Long newestMessageId =
+                        ChatLogDatabase.getInstance(
+                                        mConnection.getConnectionManager().getContext()
+                                )
+                                .conversationStateDao()
+                                .getLatestMessageId(
+                                        mConnection.getUUID(),
+                                        mChannel
+                                );
+
+                if (newestMessageId != null) {
+                    mConversationStateRepo.markConversationRead(
+                            mConnection.getUUID(),
+                            mChannel,
+                            newestMessageId
+                    );
+                }
+            });
+
             mUnreadMessageCount = 0;
-            NotificationManager.getInstance().callUnreadMessageCountCallbacks(mConnection,
-                    mChannel, 0, prevCount);
-            mStorage.requestResetChannelCounter(mConnection.getUUID(), getChannel());
             mFirstUnreadMessage = null;
-            mStorage.requestResetFirstMessageId(mConnection.getUUID(), getChannel());
+
+            NotificationManager.getInstance()
+                    .callUnreadMessageCountCallbacks(
+                            mConnection,
+                            mChannel,
+                            0,
+                            prevCount
+                    );
         }
     }
+
 
     void showNotification(Context context, NotificationRule rule) {
         NotificationMessage lastMessage;
@@ -247,6 +313,26 @@ public class ChannelNotificationManager implements NotificationCountStorage.OnCh
                 return;
             }
             NotificationManagerCompat.from(context).notify(mNotificationId, notification.build());
+
+            // Persist notification boundary off the UI thread
+            MessageId lastMsgId;
+            synchronized (this) {
+                lastMsgId = mMessages.isEmpty()
+                        ? null
+                        : mMessages.get(mMessages.size() - 1).mMessageId;
+            }
+
+            if (lastMsgId != null) {
+                long msgLogId = Long.parseLong(lastMsgId.toString());
+                Async.io(() -> {
+                    mConversationStateRepo.markNotified(
+                            mConnection.getUUID(),
+                            mChannel,
+                            msgLogId
+                    );
+                });
+            }
+
             mShowingNotification = true;
         }
     }
@@ -343,20 +429,6 @@ public class ChannelNotificationManager implements NotificationCountStorage.OnCh
         }
     }
 
-    @Override
-    public void onChannelCounterResult(UUID server, String channel, int result, String msgId) {
-        synchronized (this) {
-            mUnreadMessageCount += result;
-            if (msgId != null)
-                mFirstUnreadMessage = mConnection.getMessageIdParser().parse(msgId);
-            if (mChannel != null) {
-                NotificationManager.getInstance().callUnreadMessageCountCallbacks(mConnection,
-                        mChannel, mUnreadMessageCount, mUnreadMessageCount - result);
-            }
-        }
-    }
-
-
     public static class NotificationMessage {
 
         private MessageId mMessageId;
@@ -445,7 +517,7 @@ public class ChannelNotificationManager implements NotificationCountStorage.OnCh
             String channel = intent.getStringExtra(ARG_CHANNEL);
             String action = intent.getStringExtra(ARG_ACTION);
             if (ACTION_DISMISS.equals(action)) {
-                NotificationManager.getInstance().onNotificationDismissed(context, conn, channel);
+                NotificationManager.getInstance().onNotificationDismissed(conn, channel);
             } else if (ACTION_REPLY.equals(action)) {
                 Bundle inputData = RemoteInput.getResultsFromIntent(intent);
                 if (inputData == null || !(inputData.containsKey(KEY_REPLY_TEXT)))
@@ -481,7 +553,7 @@ public class ChannelNotificationManager implements NotificationCountStorage.OnCh
                     NotificationManagerCompat.from(mContext);
             notificationManager.cancel(mNotificationId);
 
-            NotificationManager.getInstance().onNotificationDismissed(mContext, mConnection,
+            NotificationManager.getInstance().onNotificationDismissed(mConnection,
                     mChannel);
             NotificationManager.getInstance().updateSummaryNotification(mContext, null);
         }
