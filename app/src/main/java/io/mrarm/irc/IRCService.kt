@@ -47,7 +47,6 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
             ">>> IRC service created, IRCService.oncreate() called"
         )
         WarningHelper.setAppContext(applicationContext)
-        ChatLogStorageManager.getInstance(applicationContext)
 
         val manager = ServerConnectionManager.getInstance(this)
         manager.connections.forEach { onConnectionAdded(it) }
@@ -98,11 +97,29 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
                 }
 
             val builder = StringBuilder().apply {
-                append(resources.getQuantityString(R.plurals.service_status_connected, connectedCount, connectedCount))
+                append(
+                    resources.getQuantityString(
+                        R.plurals.service_status_connected,
+                        connectedCount,
+                        connectedCount
+                    )
+                )
                 if (connectingCount > 0) append(getString(R.string.text_comma))
-                    .append(resources.getQuantityString(R.plurals.service_status_connecting, connectingCount, connectingCount))
+                    .append(
+                        resources.getQuantityString(
+                            R.plurals.service_status_connecting,
+                            connectingCount,
+                            connectingCount
+                        )
+                    )
                 if (disconnectedCount > 0) append(getString(R.string.text_comma))
-                    .append(resources.getQuantityString(R.plurals.service_status_disconnected, disconnectedCount, disconnectedCount))
+                    .append(
+                        resources.getQuantityString(
+                            R.plurals.service_status_disconnected,
+                            disconnectedCount,
+                            disconnectedCount
+                        )
+                    )
             }
 
             // Build persistent foreground notification
@@ -139,10 +156,14 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
         return START_STICKY
     }
 
-    /** Called when a message is received on any subscribed connection. */
-    private fun onMessage(connection: ServerConnectionInfo, channel: String?, info: MessageInfo, messageId: MessageId) {
+    /** Called when a message is received on any subscribed connection, via Listener */
+    private fun onMessage(
+        connection: ServerConnectionInfo,
+        channel: String?,
+        info: MessageInfo,
+        messageId: MessageId
+    ) {
         NotificationManager.getInstance().processMessage(this, connection, channel, info, messageId)
-        ChatLogStorageManager.getInstance(this).onMessage(connection)
     }
 
     /** Triggered when a new IRC connection is established in the manager. */
@@ -151,14 +172,24 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
             onMessage(connection, channel, info, id)
         }
         messageListeners[connection] = listener
-        connection.apiInstance?.messageStorageApi?.subscribeChannelMessages(null, listener, null, null)
+        connection.apiInstance?.messageStorageApi?.subscribeChannelMessages(
+            null,
+            listener,
+            null,
+            null
+        )
     }
 
     /** Triggered when a connection is removed; unsubscribes message listeners. */
     override fun onConnectionRemoved(connection: ServerConnectionInfo) {
         val listener = messageListeners.remove(connection)
         if (listener != null) {
-            connection.apiInstance?.messageStorageApi?.unsubscribeChannelMessages(null, listener, null, null)
+            connection.apiInstance?.messageStorageApi?.unsubscribeChannelMessages(
+                null,
+                listener,
+                null,
+                null
+            )
         }
     }
 
@@ -180,7 +211,10 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
                 handleNetworkUpdate()
             }
 
-            override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
+            override fun onCapabilitiesChanged(
+                network: Network,
+                networkCapabilities: NetworkCapabilities
+            ) {
                 handleNetworkUpdate()
             }
         }

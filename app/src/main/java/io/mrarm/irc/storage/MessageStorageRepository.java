@@ -9,6 +9,7 @@ import android.util.Pair;
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -22,7 +23,9 @@ import io.mrarm.irc.chatlib.dto.MessageInfo;
 import io.mrarm.irc.chatlib.dto.MessageList;
 import io.mrarm.irc.chatlib.dto.MessageSenderInfo;
 import io.mrarm.irc.chatlib.dto.RoomMessageId;
+import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.storage.db.ChatLogDatabase;
+import io.mrarm.irc.storage.db.IdSizePair;
 import io.mrarm.irc.storage.db.MessageDao;
 import io.mrarm.irc.storage.db.MessageEntity;
 import io.mrarm.irc.util.Async;
@@ -33,6 +36,10 @@ public class MessageStorageRepository {
     private final ChatLogDatabase db;
     private final MessageDao dao;
     private final Context context;
+    private static final int AUTO_CLEANUP_CHECK_EVERY = 500;
+    private static final double AUTO_CLEANUP_HYSTERESIS = 1.10; // 10%
+
+    private int insertCounter = 0;
 
     // Global monitor lock for all maintenance & write operations
     private final Object maintenanceLock = new Object();
@@ -56,7 +63,13 @@ public class MessageStorageRepository {
 
     public long insertMessage(MessageEntity msg) {
         synchronized (maintenanceLock) {
-            return dao.insert(msg);
+            long id = dao.insert(msg);
+
+            if (++insertCounter >= AUTO_CLEANUP_CHECK_EVERY) {
+                insertCounter = 0;
+                considerAutoCleanup();
+            }
+            return id;
         }
     }
 
@@ -187,8 +200,113 @@ public class MessageStorageRepository {
                 raf.setLength(0);
             }
 
-        } catch (Exception ignored) {
-            Log.d("Catched exception while removing data: ", ignored.getMessage());
+        } catch (IOException ex) {
+            Log.d("Catched exception while removing data: ", ex.getMessage());
+        }
+    }
+
+    private void considerAutoCleanup() {
+        long globalLimit = AppSettings.getStorageLimitGlobal();
+        if (globalLimit < 0) return;
+
+        Long usageObj = dao.getGlobalUsage();
+        long usage = usageObj != null ? usageObj : 0L;
+
+        if (usage > (long) (globalLimit * AUTO_CLEANUP_HYSTERESIS)) {
+            enforceGlobalLimit(globalLimit);
+        }
+    }
+
+    public static class CleanupResult {
+        private static final int CLEANUP_BATCH = 500;
+
+        public final int rowsDeleted;
+        public final long bytesFreed;
+
+        public CleanupResult(int rowsDeleted, long bytesFreed) {
+            this.rowsDeleted = rowsDeleted;
+            this.bytesFreed = bytesFreed;
+        }
+    }
+
+    public CleanupResult enforceGlobalLimit(long globalLimitBytes) {
+        if (globalLimitBytes < 0) {
+            return new CleanupResult(0, 0); // no limit
+        }
+
+        synchronized (maintenanceLock) {
+            Long usageObj = dao.getGlobalUsage();
+            Log.d("Enforce Global cleaning hit: ", String.valueOf(dao.getGlobalUsage()));
+            long usage = usageObj != null ? usageObj : 0L;
+
+            if (usage <= globalLimitBytes) {
+                return new CleanupResult(0, 0);
+            }
+
+            long toFree = usage - globalLimitBytes;
+            long freed = 0L;
+            int rowsDeleted = 0;
+
+            while (freed < toFree) {
+                List<IdSizePair> batch = dao.selectOldestGlobal(CleanupResult.CLEANUP_BATCH);
+                if (batch.isEmpty()) break;
+
+                List<Long> ids = new ArrayList<>(batch.size());
+                for (IdSizePair p : batch) {
+                    ids.add(p.id);
+                    freed += p.aproxRowSize;
+                    if (freed >= toFree) break;
+                }
+
+                int deleted = dao.deleteByIds(ids);
+                rowsDeleted += deleted;
+
+                if (deleted == 0) break; // safety
+            }
+
+            return new CleanupResult(rowsDeleted, freed);
+        }
+    }
+
+    public CleanupResult enforceServerLimit(UUID serverId, long serverLimitBytes) {
+        if (serverId == null || serverLimitBytes < 0) {
+            return new CleanupResult(0, 0); // no-op
+        }
+
+
+        synchronized (maintenanceLock) {
+            Long usageObj = dao.getUsageForServer(serverId);
+            long usage = usageObj != null ? usageObj : 0L;
+            Log.d("Enforce Server cleaning hit: ", String.valueOf(usage));
+
+            if (usage <= serverLimitBytes) {
+                return new CleanupResult(0, 0);
+            }
+
+            long toFree = usage - serverLimitBytes;
+            long freed = 0L;
+            int rowsDeleted = 0;
+
+            while (freed < toFree) {
+                List<IdSizePair> batch =
+                        dao.selectOldestForServer(serverId, CleanupResult.CLEANUP_BATCH);
+
+                if (batch.isEmpty()) break;
+
+                List<Long> ids = new ArrayList<>(batch.size());
+                for (IdSizePair p : batch) {
+                    ids.add(p.id);
+                    freed += p.aproxRowSize;
+                    if (freed >= toFree) break;
+                }
+
+                int deleted = dao.deleteByIds(ids);
+                rowsDeleted += deleted;
+
+                if (deleted == 0) break; // safety
+            }
+
+            return new CleanupResult(rowsDeleted, freed);
         }
     }
 }

@@ -25,16 +25,15 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringWriter;
 import java.security.GeneralSecurityException;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import io.mrarm.irc.ServerConnectionInfo;
 import io.mrarm.irc.ServerConnectionManager;
-import io.mrarm.irc.storage.StorageRepository;
 import io.mrarm.irc.setting.ListWithCustomSetting;
+import io.mrarm.irc.storage.db.ChatLogDatabase;
 import io.mrarm.irc.util.theme.ThemeInfo;
 import io.mrarm.irc.util.theme.ThemeManager;
 
@@ -48,13 +47,39 @@ public class BackupManager {
     private static final String BACKUP_SERVER_CERTS_SUFFIX = ".jks";
     private static final String BACKUP_NOTIFICATION_RULES_PATH = "notification_rules.json";
     private static final String BACKUP_COMMAND_ALIASES_PATH = "command_aliases.json";
-    private static final String NOTIFICATION_COUNT_DB_PATH = "notification-count.db";
     private static final String BACKUP_THEME_PREFIX = "themes/theme-";
     private static final String BACKUP_THEME_SUFFIX = ".json";
+    private static final String CHATLOG_DB_PATH = "chatlogs.db";
 
+
+    /**
+     * Creates a full application backup as a ZIP archive.
+     * <p>
+     * Backup contents (in order of importance): <br>
+     * - SharedPreferences (preferences.json)  <br>
+     * - Custom preference files <br>
+     * - Server configurations + SSL certificates <br>
+     * - Notification rules <br>
+     * - Command aliases <br>
+     * - Custom themes <br>
+     * - chatlogs.db (Room database, authoritative message store) <br>
+     * <p>
+     * IMPORTANT: <br>
+     * - This method assumes a COLD backup model. <br>
+     * - Callers MUST ensure: <br>
+     * - No active IRC connections <br>
+     * - No ongoing message writes <br>
+     * - Room database is fully closed <br>
+     * <p>
+     * The backup is intended to be restored atomically.
+     */
     public static void createBackup(Context context, File file, String password) throws IOException {
         try {
-            Log.d("BackupManager", "createBackup: " + file.getAbsolutePath());
+            quiesceStorage(context, false);
+
+            // ------------------------------------------------------------
+            // 1) Initialize ZIP file and compression/encryption parameters
+            // ------------------------------------------------------------
 
             ZipFile zipFile = new ZipFile(file);
             ZipParameters params = new ZipParameters();
@@ -66,24 +91,39 @@ public class BackupManager {
                 params.setAesKeyStrength(Zip4jConstants.AES_STRENGTH_256);
                 params.setPassword(password);
             }
+            // We provide streams manually for JSON content
             params.setSourceExternalStream(true);
 
+            // ------------------------------------------------------------
+            // 2) Backup SharedPreferences as JSON
+            // ------------------------------------------------------------
             params.setFileNameInZip(BACKUP_PREFERENCES_PATH);
             zipFile.addStream(exportPreferencesToJson(context), params);
 
+            // ------------------------------------------------------------
+            // 3) Backup custom preference files
+            //    (ListWithCustomSetting / SettingsHelper managed files)
+            // ------------------------------------------------------------
             for (File f : SettingsHelper.getInstance(context).getCustomFiles()) {
                 params.setFileNameInZip(BACKUP_PREF_VALUES_PREFIX + f.getName());
                 zipFile.addFile(f, params);
             }
 
+            // ------------------------------------------------------------
+            // 4) Backup server configurations and SSL certificates
+            // ------------------------------------------------------------
+            ServerConfigManager configManager = ServerConfigManager.getInstance(context);
             StringWriter writer;
 
-            ServerConfigManager configManager = ServerConfigManager.getInstance(context);
             for (ServerConfigData data : configManager.getServers()) {
+
+                // 4a) Serialize server configuration as JSON
                 writer = new StringWriter();
                 SettingsHelper.getGson().toJson(data, writer);
                 params.setFileNameInZip(BACKUP_SERVER_PREFIX + data.uuid + BACKUP_SERVER_SUFFIX);
                 zipFile.addStream(new ByteArrayInputStream(writer.toString().getBytes()), params);
+
+                // 4b) Backup server SSL certificate keystore (if present)
                 File sslCertsFile = configManager.getServerSSLCertsFile(data.uuid);
                 if (sslCertsFile.exists()) {
                     synchronized (ServerCertificateManager.get(sslCertsFile)) { // lock the helper to prevent any writes to the file
@@ -93,32 +133,44 @@ public class BackupManager {
                 }
             }
 
+            // ------------------------------------------------------------
+            // 5) Backup notification rules
+            // ------------------------------------------------------------
             writer = new StringWriter();
             NotificationRuleManager.saveUserRuleSettings(context, writer);
             params.setFileNameInZip(BACKUP_NOTIFICATION_RULES_PATH);
             zipFile.addStream(new ByteArrayInputStream(writer.toString().getBytes()), params);
 
+            // ------------------------------------------------------------
+            // 6) Backup command aliases
+            // ------------------------------------------------------------
             writer = new StringWriter();
             CommandAliasManager.getInstance(context).saveUserSettings(writer);
             params.setFileNameInZip(BACKUP_COMMAND_ALIASES_PATH);
             zipFile.addStream(new ByteArrayInputStream(writer.toString().getBytes()), params);
 
-            StorageRepository repository = StorageRepository.getInstance(context);
-            repository.ensureNotificationCountsMigrated();
-            repository.closeNotificationCounts();
-            params.setFileNameInZip(NOTIFICATION_COUNT_DB_PATH);
-            File notificationFile = repository.getNotificationCountFile();
-            if (notificationFile.exists())
-                zipFile.addFile(notificationFile, params);
-            repository.ensureNotificationCountsMigrated();
-
+            // ------------------------------------------------------------
+            // 7) Backup custom themes
+            // ------------------------------------------------------------
             ThemeManager themeManager = ThemeManager.getInstance(context);
             for (ThemeInfo themeInfo : themeManager.getCustomThemes()) {
                 params.setFileNameInZip(BACKUP_THEME_PREFIX + themeInfo.uuid + BACKUP_THEME_SUFFIX);
                 zipFile.addFile(themeManager.getThemePath(themeInfo.uuid), params);
             }
+
+            // ------------------------------------------------------------
+            // 8) Backup chatlogs.db (Room database)
+            // ------------------------------------------------------------
+            // This is the authoritative message store.
+            // DB must be closed and quiescent before copying.
+            File chatlogDb = context.getDatabasePath(CHATLOG_DB_PATH);
+            if (chatlogDb.exists()) {
+                params.setFileNameInZip(CHATLOG_DB_PATH);
+                zipFile.addFile(chatlogDb, params);
+            }
+
         } catch (ZipException e) {
-            throw new IOException(e);
+            throw new IOException("Invalid or incomplete backup", e);
         }
     }
 
@@ -146,24 +198,58 @@ public class BackupManager {
         }
     }
 
+    /**
+     * Restores a full application backup from a ZIP archive.
+     * <p>
+     * Restore scope: <br>
+     * - SharedPreferences <br>
+     * - Custom preference files <br>
+     * - Server configurations and SSL certificates <br>
+     * - Notification rules <br>
+     * - Command aliases <br>
+     * - Custom themes <br>
+     * - chatlogs.db (Room database, authoritative message store)
+     * <p>
+     * IMPORTANT RESTORE CONTRACT: <br>
+     * - Restore is a COLD operation. <br>
+     * - All IRC connections MUST be disconnected. <br>
+     * - No message writes must be occurring. <br>
+     * - Room database must not hold the DB open when chatlogs.db is replaced. <br>
+     * <p>
+     * The restore process is destructive and replaces current state.
+     */
     public static void restoreBackup(Context context, File file, String password) throws IOException {
         try {
+
+            quiesceStorage(context, true);
+
+            // ------------------------------------------------------------
+            // 1) Open ZIP backup (optionally with password)
+            // ------------------------------------------------------------
             ZipFile zipFile = new ZipFile(file);
 
             if (password != null)
                 zipFile.setPassword(password);
 
+
+            // ------------------------------------------------------------
+            // 2) Restore SharedPreferences
+            // ------------------------------------------------------------
+            // Preferences are restored early as they may affect
+            // subsequent restore logic and initialization behavior.
             Reader reader = new BufferedReader(new InputStreamReader(zipFile.getInputStream(
                     zipFile.getFileHeader(BACKUP_PREFERENCES_PATH))));
             importPreferencesFromJson(context, reader);
             reader.close();
 
-            List<UUID> removeLogServers = new ArrayList<>();
-            ServerConnectionManager.getInstance(context).disconnectAndRemoveAllConnections(true);
-            for (ServerConfigData server : ServerConfigManager.getInstance(context).getServers())
-                removeLogServers.add(server.uuid);
-            ServerConfigManager.getInstance(context).deleteAllServers(false);
+            // ------------------------------------------------------------
+            // 3) Reset server configuration
+            // ------------------------------------------------------------
+            ServerConfigManager.getInstance(context).deleteAllServers();
 
+            // ------------------------------------------------------------
+            // 4) Clear and reset custom themes directory
+            // ------------------------------------------------------------
             ThemeManager themeManager = ThemeManager.getInstance(context);
             File themeDir = themeManager.getThemesDir();
             File[] themeDirFiles = themeDir.listFiles();
@@ -173,10 +259,15 @@ public class BackupManager {
             }
             themeDir.mkdir();
 
+            // ------------------------------------------------------------
+            // 5) Iterate through ZIP entries and restore components
+            // ------------------------------------------------------------
             for (Object header : zipFile.getFileHeaders()) {
                 if (!(header instanceof FileHeader))
                     continue;
                 FileHeader fileHeader = (FileHeader) header;
+
+                // 5a) Restore server configurations
                 if (fileHeader.getFileName().startsWith(BACKUP_SERVER_PREFIX) &&
                         fileHeader.getFileName().endsWith(BACKUP_SERVER_SUFFIX)) {
                     reader = new BufferedReader(new InputStreamReader(zipFile.getInputStream(
@@ -186,8 +277,9 @@ public class BackupManager {
                     data.migrateLegacyProperties();
                     reader.close();
                     ServerConfigManager.getInstance(context).saveServer(data);
-                    removeLogServers.remove(data.uuid);
                 }
+
+                // 5b) Restore server SSL certificate keystores
                 if (fileHeader.getFileName().startsWith(BACKUP_SERVER_CERTS_PREFIX) &&
                         fileHeader.getFileName().endsWith(BACKUP_SERVER_CERTS_SUFFIX)) {
                     String uuid = fileHeader.getFileName();
@@ -202,6 +294,8 @@ public class BackupManager {
                         throw new IOException(exception);
                     }
                 }
+
+                // 5c) Restore custom preference files
                 if (fileHeader.getFileName().startsWith(BACKUP_PREF_VALUES_PREFIX)) {
                     String name = fileHeader.getFileName();
                     int iof = name.lastIndexOf('/');
@@ -211,6 +305,8 @@ public class BackupManager {
                             ListWithCustomSetting.getCustomFilesDir(context).getAbsolutePath(),
                             null, name);
                 }
+
+                // 5d) Restore custom themes
                 if (fileHeader.getFileName().startsWith(BACKUP_THEME_PREFIX) &&
                         fileHeader.getFileName().endsWith(BACKUP_THEME_SUFFIX)) {
                     String uuid = fileHeader.getFileName();
@@ -226,22 +322,18 @@ public class BackupManager {
                 }
             }
 
-            for (UUID uuid : removeLogServers) {
-                File f = ServerConfigManager.getInstance(context).getServerChatLogDir(uuid);
-                File[] files = f.listFiles();
-                if (files != null) {
-                    for (File ff : files)
-                        ff.delete();
-                    f.delete();
-                }
-            }
-
+            // ------------------------------------------------------------
+            // 6) Restore notification rules
+            // ------------------------------------------------------------
             reader = new BufferedReader(new InputStreamReader(zipFile.getInputStream(
                     zipFile.getFileHeader(BACKUP_NOTIFICATION_RULES_PATH))));
             NotificationRuleManager.loadUserRuleSettings(reader);
             reader.close();
             NotificationRuleManager.saveUserRuleSettings(context);
 
+            // ------------------------------------------------------------
+            // 7) Restore command aliases
+            // ------------------------------------------------------------
             reader = new BufferedReader(new InputStreamReader(zipFile.getInputStream(
                     zipFile.getFileHeader(BACKUP_COMMAND_ALIASES_PATH))));
             CommandAliasManager aliasManager = CommandAliasManager.getInstance(context);
@@ -249,22 +341,57 @@ public class BackupManager {
             reader.close();
             aliasManager.saveUserSettings();
 
-            StorageRepository repository = StorageRepository.getInstance(context);
-            repository.closeNotificationCounts();
-            File notificationFile = repository.getNotificationCountFile();
-            SettingsHelper.deleteSQLiteDatabase(notificationFile);
-            try {
-                zipFile.extractFile(NOTIFICATION_COUNT_DB_PATH,
-                        notificationFile.getParentFile().getAbsolutePath(),
-                        null, notificationFile.getName());
-            } catch (ZipException ignored) {
-            }
-            repository.ensureNotificationCountsMigrated();
-
+            // ------------------------------------------------------------
+            // 8) Reload themes after restore
+            // ------------------------------------------------------------
             themeManager.reloadThemes();
+
+            // ------------------------------------------------------------
+            // 9) Restore chatlogs.db (Room database)
+            // ------------------------------------------------------------
+            // chatlogs.db is the authoritative message store.
+            // It replaces all previous message data.
+            File chatlogDb = context.getDatabasePath(CHATLOG_DB_PATH);
+
+            // NOTE:
+            // Room must not be holding the database open here.
+            // Ideally, Room should be closed BEFORE this step.
+            if (chatlogDb.exists()) {
+                chatlogDb.delete();
+            }
+
+            zipFile.extractFile(
+                    CHATLOG_DB_PATH,
+                    chatlogDb.getParentFile().getAbsolutePath(),
+                    null,
+                    chatlogDb.getName()
+            );
+
+
         } catch (ZipException e) {
-            throw new IOException(e);
+            throw new IOException("Invalid or incomplete backup", e);
         }
+    }
+
+    private static void quiesceStorage(Context context, boolean removeConnections) {
+        ServerConnectionManager scm =
+                ServerConnectionManager.getInstance(context);
+
+        if (scm != null) {
+            if (removeConnections) {
+                // Destructive shutdown (restore)
+                scm.disconnectAndRemoveAllConnections(true);
+            } else {
+                // Non-destructive shutdown (backup)
+                for (ServerConnectionInfo conn : scm.getConnections()) {
+                    conn.disconnect();
+                }
+            }
+        }
+
+        // After all message producers are stopped,
+        // close Room completely
+        ChatLogDatabase.closeInstance();
     }
 
     private static InputStream exportPreferencesToJson(Context context) {

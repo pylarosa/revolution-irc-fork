@@ -6,8 +6,6 @@ import android.util.Log;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -30,8 +28,6 @@ public class ServerConfigManager {
     private static final String SERVER_FILE_SUFFIX = ".json";
     private static final String SERVER_CERTS_FILE_PREFIX = "server-certs-";
     private static final String SERVER_CERTS_FILE_SUFFIX = ".jks";
-    private static final String SERVER_LOGS_PATH = "chat-logs";
-    private static final String SERVER_MISC_DATA_FILENAME = "misc-data.db";
 
     public static ServerConfigManager getInstance(Context context) {
         if (mInstance == null)
@@ -40,8 +36,6 @@ public class ServerConfigManager {
     }
 
     private final File mServersPath;
-    private final File mServerLogsPath;
-    private final File mFallbackServerLogsPath;
 
     private final Context mContext;
     private final List<ServerConfigData> mServers = new ArrayList<>();
@@ -52,17 +46,6 @@ public class ServerConfigManager {
     public ServerConfigManager(Context context) {
         mContext = context;
         mServersPath = new File(context.getFilesDir(), SERVERS_PATH);
-        File externalFilesDir = context.getExternalFilesDir(null);
-        mFallbackServerLogsPath = new File(context.getFilesDir(), SERVER_LOGS_PATH);
-        mServerLogsPath = externalFilesDir != null ? new File(externalFilesDir, SERVER_LOGS_PATH)
-                : mFallbackServerLogsPath;
-        mServerLogsPath.mkdirs();
-
-        if (externalFilesDir != null && mFallbackServerLogsPath.exists()) {
-            migrateServerLogs(mFallbackServerLogsPath, mServerLogsPath);
-            mFallbackServerLogsPath.delete();
-        }
-
         loadServers();
     }
 
@@ -83,38 +66,6 @@ public class ServerConfigManager {
                 Log.e(TAG, "Failed to load server data");
                 e.printStackTrace();
             }
-        }
-    }
-
-    private void migrateServerLogs(File from, File to) {
-        File[] files = from.listFiles();
-        if (files == null)
-            return;
-        to.mkdir();
-        for (File file : files) {
-            if (file.isDirectory()) {
-                migrateServerLogs(file, new File(to, file.getName()));
-            } else {
-                File toFile = new File(to, file.getName());
-                File tempFile = new File(to, file.getName() + ".tmp");
-                try {
-                    FileInputStream fis = new FileInputStream(file);
-                    FileOutputStream fos = new FileOutputStream(tempFile);
-                    byte[] buf = new byte[16 * 1024];
-                    int n;
-                    while ((n = fis.read(buf)) > 0) {
-                        fos.write(buf, 0, n);
-                    }
-                    fis.close();
-                    fos.close();
-                } catch (IOException e) {
-                    throw new RuntimeException("Migration failed", e);
-                }
-                if (toFile.exists())
-                    toFile.delete();
-                tempFile.renameTo(toFile);
-            }
-            file.delete();
         }
     }
 
@@ -157,59 +108,32 @@ public class ServerConfigManager {
         }
     }
 
-    public void deleteServer(ServerConfigData data, boolean deleteLogs) {
+    public void deleteServer(ServerConfigData data) {
         ServerConnectionManager.getInstance(mContext).killDisconnectingConnection(data.uuid);
         synchronized (this) {
             mServers.remove(data);
             mServersMap.remove(data.uuid);
         }
         synchronized (mIOLock) {
-            File file = new File(mServersPath, SERVER_FILE_PREFIX + data.uuid.toString() + SERVER_FILE_SUFFIX);
-            file.delete();
-            file = getServerSSLCertsFile(data.uuid);
-            file.delete();
-            if (deleteLogs) {
-                file = getServerChatLogDir(data.uuid);
-                if (file.exists()) {
-                    File[] files = file.listFiles();
-                    for (File f : files)
-                        f.delete();
-                    file.delete();
-                }
-            }
+            new File(mServersPath, SERVER_FILE_PREFIX + data.uuid.toString() + SERVER_FILE_SUFFIX).delete();
+            getServerSSLCertsFile(data.uuid).delete();
         }
+
         synchronized (mListeners) {
             for (ConnectionsListener listener : mListeners)
                 listener.onConnectionRemoved(data);
         }
-        NotificationCountStorage.getInstance(mContext).requestRemoveServerCounters(data.uuid);
     }
 
-    public void deleteServer(ServerConfigData data) {
-        deleteServer(data, true);
-    }
-
-    public void deleteAllServers(boolean deleteLogs) {
+    public void deleteAllServers() {
         synchronized (this) {
-            while (mServers.size() > 0)
-                deleteServer(mServers.get(mServers.size() - 1), deleteLogs);
+            while (!mServers.isEmpty())
+                deleteServer(mServers.get(mServers.size() - 1));
         }
     }
 
     public File getServerSSLCertsFile(UUID uuid) {
         return new File(mServersPath, SERVER_CERTS_FILE_PREFIX + uuid.toString() + SERVER_CERTS_FILE_SUFFIX);
-    }
-
-    public File getChatLogDir() {
-        return mServerLogsPath;
-    }
-
-    public File getServerChatLogDir(UUID uuid) {
-        return new File(mServerLogsPath, uuid.toString());
-    }
-
-    public File getServerMiscDataFile(UUID uuid) {
-        return new File(getServerChatLogDir(uuid), SERVER_MISC_DATA_FILENAME);
     }
 
     public void addListener(ConnectionsListener listener) {
