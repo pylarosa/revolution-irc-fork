@@ -22,8 +22,9 @@ import io.mrarm.irc.config.CommandAliasManager;
 import io.mrarm.irc.config.NotificationRuleManager;
 import io.mrarm.irc.config.ServerConfigManager;
 import io.mrarm.irc.config.SettingsHelper;
+import io.mrarm.irc.connection.ServerConnectionRegistry;
+import io.mrarm.irc.infrastructure.threading.AppAsyncExecutor;
 import io.mrarm.irc.storage.MessageStorageRepository;
-import io.mrarm.irc.util.Async;
 
 /**
  * Performs background cleanup of logs, config files, and cached data.
@@ -62,8 +63,8 @@ public class RemoveDataTask {
 
     private void execute() {
         showProgressDialog();
-        Async.io(this::performDeletion, () ->
-                Async.ui(() -> new Handler(Looper.getMainLooper()).postDelayed(
+        AppAsyncExecutor.io(this::performDeletion, () ->
+                AppAsyncExecutor.ui(() -> new Handler(Looper.getMainLooper()).postDelayed(
                         this::onFinished, 300)
                 ));
     }
@@ -93,11 +94,10 @@ public class RemoveDataTask {
         ServerConnectionManager mgr = ServerConnectionManager.getInstance(null);
         if (mgr != null) {
             mgr.disconnectAndRemoveAllConnections(true);
-        } else {
-            //noinspection ResultOfMethodCallIgnored
-            new File(ctx.getFilesDir(),
-                    ServerConnectionManager.CONNECTED_SERVERS_FILE_PATH).delete();
         }
+
+        // Always clearConnectedServersRegistry derived connection registry
+        new ServerConnectionRegistry(ctx).clearConnectedServersRegistry();
 
         // Clear app config
         ServerConfigManager.getInstance(ctx).deleteAllServers();

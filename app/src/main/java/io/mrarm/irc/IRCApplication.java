@@ -72,7 +72,7 @@ public class IRCApplication extends Application implements Application.ActivityL
      *       when, for example, there are unsaved changes or active connections.</li>
      *
      *   <li><b>mExitCallbacks</b> – Registered listeners invoked during the actual
-     *       shutdown phase to perform cleanup (save state, release resources, etc.).</li>
+     *       shutdown phase to perform cleanup (saveConnectedServers state, release resources, etc.).</li>
      * </ul>
      *
      * These lists are created once and never reassigned, so they could be marked
@@ -89,7 +89,7 @@ public class IRCApplication extends Application implements Application.ActivityL
      * <p>Called automatically by the Android framework before any Activity or
      * Service. This method sets up global configuration and lifecycle tracking:
      * <ul>
-     *   <li>Initializes {@link SettingsHelper} singleton to load stored preferences
+     *   <li>Initializes {@link SettingsHelper} singleton to loadConnectedServers stored preferences
      *       and connection settings.</li>
      *   <li>Creates default {@link NotificationManager} channels used by
      *       {@link IRCService} and other parts of the app.</li>

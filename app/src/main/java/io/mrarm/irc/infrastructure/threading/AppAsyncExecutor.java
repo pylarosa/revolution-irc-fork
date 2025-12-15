@@ -1,4 +1,4 @@
-package io.mrarm.irc.util;
+package io.mrarm.irc.infrastructure.threading;
 
 import android.os.Handler;
 import android.os.Looper;
@@ -14,12 +14,16 @@ import java.util.function.Supplier;
  * Simple utility for running background work on a shared IO thread pool
  * and posting results back to the main thread.
  */
-public class Async {
+public class AppAsyncExecutor {
 
-    private static final ExecutorService IO = Executors.newCachedThreadPool();
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
+    private static final ExecutorService IO = Executors.newCachedThreadPool(r -> {
+        Thread t = new Thread(r, "Async-IO");
+        t.setDaemon(true);
+        return t;
+    });
 
-    private Async() {
+    private AppAsyncExecutor() {
         // Utility class; no instances.
     }
 

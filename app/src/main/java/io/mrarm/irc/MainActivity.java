@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import io.mrarm.irc.chat.ChannelInfoAdapter;
@@ -58,6 +59,19 @@ import io.mrarm.irc.util.StyledAttributesHelper;
 import io.mrarm.irc.util.WarningHelper;
 import io.mrarm.irc.view.ChipsEditText;
 import io.mrarm.irc.view.LockableDrawerLayout;
+
+// TODO(architecture):
+// MainActivity currently acts as a central UI orchestrator:
+// - navigation & fragment switching
+// - drawer / toolbar state
+// - menu state derivation
+// - bridging user actions to domain operations (connections, channels, DCC)
+//
+// Future refactor direction:
+// - extract navigation logic into a Navigator / Coordinator
+// - extract DCC-related UI flows into a dedicated component
+// - keep MainActivity focused on lifecycle + high-level orchestration
+
 
 @Keep
 public class MainActivity extends ThemedActivity implements IRCApplication.ExitCallback {
@@ -376,7 +390,7 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
         if (mChannelInfoAdapter == null)
             return;
         mChannelInfoAdapter.setData(server, topic, topicSetBy, topicSetOn, members);
-        setChannelInfoDrawerVisible(topic != null || (members != null && members.size() > 0));
+        setChannelInfoDrawerVisible(topic != null || (members != null && !members.isEmpty()));
     }
 
     public void setChannelInfoDrawerVisible(boolean visible) {
@@ -434,15 +448,15 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
                 if (partItem.isVisible())
                     hasChanges = true;
                 partItem.setVisible(false);
-            } else if (fragment.getCurrentChannel().length() > 0 && !api.getServerConnectionData()
+            } else if (!fragment.getCurrentChannel().isEmpty() && !api.getServerConnectionData()
                     .getSupportList().getSupportedChannelTypes().contains(fragment.getCurrentChannel().charAt(0))) {
-                if (partItem.isVisible() || !partItem.getTitle().equals(getString(R.string.action_close_direct)))
+                if (partItem.isVisible() || !Objects.equals(partItem.getTitle(), getString(R.string.action_close_direct)))
                     hasChanges = true;
                 partItem.setVisible(true);
                 partItem.setTitle(R.string.action_close_direct);
                 inDirectChat = true;
             } else {
-                if (partItem.isVisible() || !partItem.getTitle().equals(getString(R.string.action_part_channel)))
+                if (partItem.isVisible() || !Objects.equals(partItem.getTitle(), getString(R.string.action_part_channel)))
                     hasChanges = true;
                 partItem.setVisible(true);
                 partItem.setTitle(R.string.action_part_channel);

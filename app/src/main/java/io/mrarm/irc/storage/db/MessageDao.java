@@ -38,7 +38,7 @@ public interface MessageDao {
     List<MessageEntity> loadAfter(UUID serverId, String channel, long afterId, int limit);
 
     /**
-     * Initial tail load
+     * Initial tail loadConnectedServers
      */
     @Query("""
                 SELECT * FROM messages_logs

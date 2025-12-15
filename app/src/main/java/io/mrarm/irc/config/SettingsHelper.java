@@ -1,6 +1,5 @@
 package io.mrarm.irc.config;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Handler;
@@ -11,7 +10,6 @@ import com.google.gson.Gson;
 
 import java.io.File;
 import java.lang.ref.WeakReference;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -45,13 +43,6 @@ public class SettingsHelper implements SharedPreferences.OnSharedPreferenceChang
 
     public static Gson getGson() {
         return mGson;
-    }
-
-    public static void deleteSQLiteDatabase(File path) {
-        path.delete();
-        new File(path.getParent(), path.getName() + "-journal").delete();
-        new File(path.getParent(), path.getName() + "-shm").delete();
-        new File(path.getParent(), path.getName() + "-wal").delete();
     }
 
     private Context mContext;

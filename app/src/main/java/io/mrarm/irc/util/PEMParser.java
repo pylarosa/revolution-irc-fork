@@ -7,9 +7,7 @@ import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
-import java.security.KeyException;
 import java.security.KeyFactory;
-import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPrivateKey;
@@ -37,7 +35,7 @@ public class PEMParser {
                             new ByteArrayInputStream(cert));
                     ret.add(crt);
                 } catch (GeneralSecurityException e) {
-                    Log.w("PEMParser", "Failed to load certificate");
+                    Log.w("PEMParser", "Failed to loadConnectedServers certificate");
                     e.printStackTrace();
                 }
             }
@@ -49,7 +47,7 @@ public class PEMParser {
                     RSAPrivateKey privateKey = (RSAPrivateKey) factory.generatePrivate(keySpec);
                     ret.add(privateKey);
                 } catch (GeneralSecurityException e) {
-                    Log.w("PEMParser", "Failed to load private key");
+                    Log.w("PEMParser", "Failed to loadConnectedServers private key");
                     e.printStackTrace();
                 }
             }

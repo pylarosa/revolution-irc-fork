@@ -1,22 +1,5 @@
 package io.mrarm.irc;
 
-import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.widget.Toolbar;
-
-import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentManager;
-import androidx.fragment.app.FragmentPagerAdapter;
-import androidx.viewpager.widget.ViewPager;
-import io.mrarm.irc.setting.fragment.theme.ChatThemeSettings;
-import io.mrarm.irc.setting.fragment.theme.CommonThemeSettings;
-import io.mrarm.irc.setup.BackupProgressActivity;
-import io.mrarm.irc.util.AppCompatViewFactory;
-import io.mrarm.irc.util.theme.ThemeInfo;
-import io.mrarm.irc.util.theme.ThemeManager;
-import io.mrarm.irc.util.theme.live.LiveThemeManager;
-import io.mrarm.irc.util.theme.live.LiveThemeViewFactory;
-
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
@@ -25,25 +8,33 @@ import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
-import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.webkit.MimeTypeMap;
 import android.widget.EditText;
 import android.widget.Toast;
+
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.Toolbar;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentPagerAdapter;
+import androidx.viewpager.widget.ViewPager;
 
 import com.google.android.material.tabs.TabLayout;
 
 import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
 import java.util.UUID;
+
+import io.mrarm.irc.setting.fragment.theme.ChatThemeSettings;
+import io.mrarm.irc.setting.fragment.theme.CommonThemeSettings;
+import io.mrarm.irc.util.AppCompatViewFactory;
+import io.mrarm.irc.util.theme.ThemeInfo;
+import io.mrarm.irc.util.theme.ThemeManager;
+import io.mrarm.irc.util.theme.live.LiveThemeManager;
+import io.mrarm.irc.util.theme.live.LiveThemeViewFactory;
 
 public class ThemeEditorActivity extends ThemedActivity {
 
@@ -163,7 +154,7 @@ public class ThemeEditorActivity extends ThemedActivity {
         try {
             ThemeManager.getInstance(this).saveTheme(getThemeInfo());
         } catch (IOException e) {
-            Log.w("ThemeEditorActivity", "Failed to save theme");
+            Log.w("ThemeEditorActivity", "Failed to saveConnectedServers theme");
         }
     }
 

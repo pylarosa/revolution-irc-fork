@@ -4,10 +4,8 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import android.os.ParcelFileDescriptor;
-import com.google.android.material.textfield.TextInputLayout;
 import android.os.Bundle;
-import androidx.appcompat.app.AlertDialog;
+import android.os.ParcelFileDescriptor;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
@@ -24,6 +22,10 @@ import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.appcompat.app.AlertDialog;
+
+import com.google.android.material.textfield.TextInputLayout;
 
 import org.spongycastle.asn1.x500.X500Name;
 import org.spongycastle.asn1.x509.SubjectPublicKeyInfo;
@@ -59,8 +61,8 @@ import io.mrarm.irc.util.ExpandIconStateHelper;
 import io.mrarm.irc.util.PEMParser;
 import io.mrarm.irc.util.SimpleTextWatcher;
 import io.mrarm.irc.view.AutoRunCommandListEditText;
-import io.mrarm.irc.view.StaticLabelTextInputLayout;
 import io.mrarm.irc.view.ChipsEditText;
+import io.mrarm.irc.view.StaticLabelTextInputLayout;
 
 public class EditServerActivity extends ThemedActivity {
 
@@ -422,7 +424,7 @@ public class EditServerActivity extends ThemedActivity {
         try {
             ServerConfigManager.getInstance(this).saveServer(mEditServer);
         } catch (IOException e) {
-            Log.e(TAG, "Failed to save server info");
+            Log.e(TAG, "Failed to saveConnectedServers server info");
             e.printStackTrace();
 
             Toast.makeText(this, R.string.server_save_error, Toast.LENGTH_SHORT).show();

@@ -8,7 +8,6 @@ import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
-import android.net.NetworkInfo
 import android.net.NetworkRequest
 import android.os.Build
 import android.os.IBinder
@@ -254,16 +253,9 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
     /** Returns true if the device currently has an active Internet connection. */
     private fun hasAnyNetworkConnection(): Boolean {
         val manager = connectivityManager ?: return false
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val network = manager.activeNetwork ?: return false
-            val capabilities = manager.getNetworkCapabilities(network) ?: return false
-            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-        } else {
-            @Suppress("DEPRECATION")
-            val info: NetworkInfo? = manager.activeNetworkInfo
-            @Suppress("DEPRECATION")
-            info?.isConnected == true
-        }
+        val network = manager.activeNetwork ?: return false
+        val capabilities = manager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
     /** BootReceiver automatically starts the service after device reboot. */

@@ -24,11 +24,11 @@ import io.mrarm.irc.chatlib.dto.MessageList;
 import io.mrarm.irc.chatlib.dto.MessageSenderInfo;
 import io.mrarm.irc.chatlib.dto.RoomMessageId;
 import io.mrarm.irc.config.AppSettings;
+import io.mrarm.irc.infrastructure.threading.AppAsyncExecutor;
 import io.mrarm.irc.storage.db.ChatLogDatabase;
 import io.mrarm.irc.storage.db.IdSizePair;
 import io.mrarm.irc.storage.db.MessageDao;
 import io.mrarm.irc.storage.db.MessageEntity;
-import io.mrarm.irc.util.Async;
 
 public class MessageStorageRepository {
     private static volatile MessageStorageRepository INSTANCE;
@@ -76,19 +76,19 @@ public class MessageStorageRepository {
     // Async variants
     public void loadOlderAsync(UUID serverId, String channel, long beforeId, int limit,
                                Consumer<List<MessageEntity>> callback) {
-        Async.io(() -> dao.loadBefore(serverId, channel, beforeId, limit),
+        AppAsyncExecutor.io(() -> dao.loadBefore(serverId, channel, beforeId, limit),
                 callback);
     }
 
     public void loadNewerAsync(UUID serverId, String channel, long afterId, int limit,
                                Consumer<List<MessageEntity>> callback) {
-        Async.io(() -> dao.loadAfter(serverId, channel, afterId, limit),
+        AppAsyncExecutor.io(() -> dao.loadAfter(serverId, channel, afterId, limit),
                 callback);
     }
 
     public void loadRecentAsync(UUID serverId, String channel, int limit,
                                 Consumer<MessageList> uiCallback) {
-        Async.io(() -> toMessageListFromRoom(dao.loadRecent(serverId, channel, limit)),
+        AppAsyncExecutor.io(() -> toMessageListFromRoom(dao.loadRecent(serverId, channel, limit)),
                 uiCallback
         );
     }
@@ -96,7 +96,7 @@ public class MessageStorageRepository {
     public void loadNearAsync(UUID serverId, String channel, long centerId, int limit,
                               Consumer<List<MessageEntity>> callback) {
 
-        Async.io(() -> {
+        AppAsyncExecutor.io(() -> {
             // older → chronological descending, so reverse later
             List<MessageEntity> older = dao.loadBefore(serverId, channel, centerId, limit);
 

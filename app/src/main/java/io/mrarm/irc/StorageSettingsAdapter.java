@@ -27,10 +27,10 @@ import io.mrarm.irc.config.ServerConfigManager;
 import io.mrarm.irc.dialog.MenuBottomSheetDialog;
 import io.mrarm.irc.dialog.ServerStorageLimitDialog;
 import io.mrarm.irc.dialog.StorageLimitsDialog;
+import io.mrarm.irc.infrastructure.threading.AppAsyncExecutor;
 import io.mrarm.irc.job.RemoveDataTask;
 import io.mrarm.irc.storage.MessageStatsRepository;
 import io.mrarm.irc.storage.MessageStorageRepository;
-import io.mrarm.irc.util.Async;
 import io.mrarm.irc.util.ColoredTextBuilder;
 import io.mrarm.irc.util.StyledAttributesHelper;
 import io.mrarm.irc.view.SimpleBarChart;
@@ -61,7 +61,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
     @SuppressLint("NotifyDataSetChanged")
     void refreshServerLogsFromDb(Context context) {
 
-        Async.io(() -> {
+        AppAsyncExecutor.io(() -> {
             MessageStatsRepository stats = new MessageStatsRepository(context);
 
             // Aggregate per server
@@ -81,7 +81,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
             }
 
             // push on UI thread
-            Async.ui(() -> {
+            AppAsyncExecutor.ui(() -> {
                 mDbServerLogEntries.clear();
                 mDbServerLogEntries.addAll(newEntries);
                 mServerLogEntries.clear();
@@ -95,9 +95,9 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
     }
 
     void refreshConfigurationSize(Context context) {
-        Async.io(() -> {
+        AppAsyncExecutor.io(() -> {
             long size = ConfigurationSizeCalculator.calculate(context);
-            Async.ui(() -> {
+            AppAsyncExecutor.ui(() -> {
                 mConfigurationSize = size;
                 notifyItemChanged(getItemCount() - 1);
             });
@@ -164,7 +164,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
             view.findViewById(R.id.set_limits).setOnClickListener((View v) -> {
                 StorageLimitsDialog dialog = new StorageLimitsDialog(v.getContext());
                 dialog.setOnDismissListener((DialogInterface di) -> {
-                    Async.io(() -> {
+                    AppAsyncExecutor.io(() -> {
                         long globalLimit = AppSettings.getStorageLimitGlobal();
                         MessageStorageRepository.CleanupResult cleanupResult =  roomStorageRepository.enforceGlobalLimit(globalLimit);
                         Log.d("Enforce Global cleaning hit: ", cleanupResult.toString());
@@ -271,7 +271,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                         ServerStorageLimitDialog dialog = new ServerStorageLimitDialog(itemView.getContext(), server);
 
                         dialog.setOnDismissListener(di -> {
-                            Async.io(() -> {
+                            AppAsyncExecutor.io(() -> {
                                 long limit = server.storageLimit;
                                 if (limit > 0) {
                                     MessageStorageRepository.CleanupResult cleanupResult = roomStorageRepository.enforceServerLimit(server.uuid, limit);

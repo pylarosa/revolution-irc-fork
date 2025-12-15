@@ -9,13 +9,11 @@ import java.security.PrivateKey;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.security.spec.EncodedKeySpec;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.util.List;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
-import io.mrarm.irc.R;
 import io.mrarm.irc.util.SimpleWildcardPattern;
 
 public class ServerConfigData {
@@ -67,7 +65,7 @@ public class ServerConfigData {
             return (X509Certificate) factory.generateCertificate(
                     new ByteArrayInputStream(authCertData));
         } catch (CertificateException e) {
-            Log.e("ServerConfigData", "Failed to load cert data");
+            Log.e("ServerConfigData", "Failed to loadConnectedServers cert data");
             e.printStackTrace();
         }
         return null;
@@ -81,7 +79,7 @@ public class ServerConfigData {
             PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(authCertPrivKey);
             return factory.generatePrivate(keySpec);
         } catch (GeneralSecurityException e) {
-            Log.w("ServerConfigData", "Failed to load private key");
+            Log.w("ServerConfigData", "Failed to loadConnectedServers private key");
             e.printStackTrace();
         }
         return null;

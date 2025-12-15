@@ -4,51 +4,42 @@ import android.content.Context;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
-import android.net.NetworkInfo;
-import android.os.Build;
+import android.util.Log;
 import android.widget.Toast;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.nio.charset.Charset;
-import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
-import javax.net.ssl.KeyManager;
-import javax.net.ssl.SSLContext;
-import javax.net.ssl.TrustManager;
-
-import io.mrarm.irc.chatlib.irc.IRCConnectionRequest;
-import io.mrarm.irc.chatlib.irc.cap.SASLOptions;
 import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
-import io.mrarm.irc.config.SettingsHelper;
+import io.mrarm.irc.connection.ServerConnectionFactory;
+import io.mrarm.irc.connection.ServerConnectionRegistry;
+import io.mrarm.irc.infrastructure.threading.DelayScheduler;
+import io.mrarm.irc.infrastructure.threading.ManagedCoroutineScope;
+import io.mrarm.irc.infrastructure.threading.SchedulerProvider;
+import io.mrarm.irc.infrastructure.threading.SchedulerProviderHolder;
 import io.mrarm.irc.setting.ReconnectIntervalSetting;
-import io.mrarm.irc.util.DelayScheduler;
-import io.mrarm.irc.util.ManagedCoroutineScope;
-import io.mrarm.irc.util.SchedulerProvider;
-import io.mrarm.irc.util.SchedulerProviderHolder;
 import kotlin.Unit;
 import kotlin.coroutines.EmptyCoroutineContext;
 import kotlinx.coroutines.BuildersKt;
 import kotlinx.coroutines.CoroutineScope;
 import kotlinx.coroutines.CoroutineStart;
 
+// TODO(architecture):
+// ServerConnectionManager currently acts as:
+// - connection registry
+// - connection factory
+// - reconnect policy holder
+// - service lifecycle coordinator
+// These responsibilities should be separated gradually.
 public class ServerConnectionManager {
-
-    public static final String CONNECTED_SERVERS_FILE_PATH = "connected_servers.json";
 
     private static ServerConnectionManager instance;
 
     private final Context mContext;
-    private final File mConnectedServersFile;
     private final HashMap<UUID, ServerConnectionInfo> mConnectionsMap = new HashMap<>();
     private final ArrayList<ServerConnectionInfo> mConnections = new ArrayList<>();
     private final HashMap<UUID, ServerConnectionInfo> mDisconnectingConnections = new HashMap<>();
@@ -58,7 +49,9 @@ public class ServerConnectionManager {
     private boolean mDestroying = false;
     private final ManagedCoroutineScope mIoScopeWrapper;
     private final CoroutineScope mIoScope;
-    private final DelayScheduler mReconnectScheduler;
+    private final ServerConnectionFactory connectionFactory;
+    public final ServerConnectionRegistry mConnectionRegistry;
+
 
     public static boolean hasInstance() {
         return instance != null;
@@ -74,7 +67,7 @@ public class ServerConnectionManager {
         if (instance == null)
             return;
         instance.mDestroying = true;
-        while (instance.mConnections.size() > 0) {
+        while (!instance.mConnections.isEmpty()) {
             ServerConnectionInfo connection = instance.mConnections.get(instance.mConnections.size() - 1);
             connection.disconnect();
             instance.removeConnection(connection, false);
@@ -93,52 +86,41 @@ public class ServerConnectionManager {
         SchedulerProvider resolvedProvider = schedulerProvider != null ? schedulerProvider : SchedulerProviderHolder.get();
         mIoScopeWrapper = new ManagedCoroutineScope(resolvedProvider.getIoDispatcher());
         mIoScope = mIoScopeWrapper.getScope();
-        mReconnectScheduler = resolvedProvider.getReconnectionScheduler();
+        DelayScheduler mReconnectScheduler = resolvedProvider.getReconnectionScheduler();
+        connectionFactory = new ServerConnectionFactory(mContext, mReconnectScheduler);
+        mConnectionRegistry = new ServerConnectionRegistry(mContext);
 
-        mConnectedServersFile = new File(context.getFilesDir(), CONNECTED_SERVERS_FILE_PATH);
-        ConnectedServersList servers = null;
-        try {
-            servers = SettingsHelper.getGson().fromJson(new BufferedReader(new FileReader(mConnectedServersFile)), ConnectedServersList.class);
-        } catch (Exception ignored) {
-        }
+        List<ServerConnectionRegistry.ConnectedServerEntry> entries = mConnectionRegistry.loadConnectedServers();
+        ServerConfigManager configManager = ServerConfigManager.getInstance(context);
 
-        if (servers != null) {
-            ServerConfigManager configManager = ServerConfigManager.getInstance(context);
-            for (ConnectedServerInfo server : servers.servers) {
-                ServerConfigData configData = configManager.findServer(server.uuid);
-                if (configData != null) {
-                    try {
-                        createConnection(configData, server.channels, false);
-                    } catch (NickNotSetException ignored) {
-                    }
+        for (ServerConnectionRegistry.ConnectedServerEntry entry : entries) {
+            ServerConfigData configData = configManager.findServer(entry.uuid);
+            if (configData != null) {
+                try {
+                    createConnection(configData, entry.channels, false);
+                } catch (NickNotSetException ignored) {
                 }
             }
         }
+        Log.i("[REGISTRY]", "Restored " + entries.size() + " connections");
     }
-
-    private void saveAutoconnectList() {
-        ConnectedServersList list = new ConnectedServersList();
-        list.servers = new ArrayList<>();
-        for (ServerConnectionInfo connectionInfo : getConnections()) {
-            ConnectedServerInfo server = new ConnectedServerInfo();
-            server.uuid = connectionInfo.getUUID();
-            server.channels = connectionInfo.getChannels();
-            list.servers.add(server);
-        }
-        try {
-            BufferedWriter writer = new BufferedWriter(new FileWriter(mConnectedServersFile));
-            SettingsHelper.getGson().toJson(list, writer);
-            writer.close();
-        } catch (Exception ignored) {
-        }
-    }
-
 
     void saveAutoconnectListAsync() {
         BuildersKt.launch(mIoScope, EmptyCoroutineContext.INSTANCE, CoroutineStart.DEFAULT, (coroutineScope, continuation) -> {
-            saveAutoconnectList();
+            saveRegistry();
             return Unit.INSTANCE;
         });
+    }
+
+    private void saveRegistry() {
+        List<ServerConnectionRegistry.ConnectedServerEntry> entries = new ArrayList<>();
+        for (ServerConnectionInfo connection : getConnections()) {
+            ServerConnectionRegistry.ConnectedServerEntry e = new ServerConnectionRegistry.ConnectedServerEntry();
+            e.uuid = connection.getUUID();
+            e.channels = connection.getChannels();
+            entries.add(e);
+        }
+        mConnectionRegistry.saveConnectedServers(entries);
     }
 
     public Context getContext() {
@@ -171,66 +153,13 @@ public class ServerConnectionManager {
         addConnection(connection, true);
     }
 
-    private ServerConnectionInfo createConnection(ServerConfigData data, List<String> joinChannels, boolean saveAutoconnect) {
+    private ServerConnectionInfo createConnection(ServerConfigData data,
+                                                  List<String> joinChannels,
+                                                  boolean saveAutoconnect) {
         killDisconnectingConnection(data.uuid);
 
-        IRCConnectionRequest request = new IRCConnectionRequest();
-        request
-                .setServerAddress(data.address, data.port);
-        if (data.charset != null)
-            request.setCharset(Charset.forName(data.charset));
-        if (data.nicks != null && data.nicks.size() > 0) {
-            for (String nick : data.nicks)
-                request.addNick(nick);
-        } else {
-            for (String nick : AppSettings.getDefaultNicks())
-                request.addNick(nick);
-            if (request.getNickList() == null)
-                throw new NickNotSetException();
-        }
-        if (data.user != null)
-            request.setUser(data.user);
-        else if (AppSettings.getDefaultUser() != null && AppSettings.getDefaultUser().length() > 0)
-            request.setUser(AppSettings.getDefaultUser());
-        else
-            request.setUser(request.getNickList().get(0));
-        if (data.realname != null)
-            request.setRealName(data.realname);
-        else if (AppSettings.getDefaultRealname() != null && AppSettings.getDefaultRealname().length() > 0)
-            request.setRealName(AppSettings.getDefaultRealname());
-        else
-            request.setRealName(request.getNickList().get(0));
+        ServerConnectionInfo connectionInfo = connectionFactory.create(this, data, joinChannels);
 
-        if (data.pass != null)
-            request.setServerPass(data.pass);
-
-        SASLOptions saslOptions = null;
-        UserKeyManager userKeyManager = null;
-        if (data.authMode != null) {
-            if (data.authMode.equals(ServerConfigData.AUTH_SASL) && data.authUser != null &&
-                    data.authPass != null)
-                saslOptions = SASLOptions.createPlainAuth(data.authUser, data.authPass);
-            if (data.authMode.equals(ServerConfigData.AUTH_SASL_EXTERNAL)) {
-                saslOptions = SASLOptions.createExternal();
-                userKeyManager = new UserKeyManager(data.getAuthCert(), data.getAuthPrivateKey());
-            }
-        }
-
-        if (data.ssl) {
-            UserOverrideTrustManager sslHelper = new UserOverrideTrustManager(mContext, data.uuid);
-            try {
-                SSLContext sslContext = SSLContext.getInstance("TLS");
-                KeyManager[] keyManagers = new KeyManager[0];
-                if (userKeyManager != null)
-                    keyManagers = new KeyManager[] { userKeyManager };
-                sslContext.init(keyManagers, new TrustManager[] { sslHelper }, null);
-                request.enableSSL(sslContext.getSocketFactory(), sslHelper);
-            } catch (GeneralSecurityException e) {
-                throw new RuntimeException(e);
-            }
-        }
-        ServerConnectionInfo connectionInfo = new ServerConnectionInfo(
-                this, data, request, saslOptions, joinChannels, mReconnectScheduler);
         connectionInfo.connect();
         addConnection(connectionInfo, saveAutoconnect);
         return connectionInfo;
@@ -270,7 +199,7 @@ public class ServerConnectionManager {
             mConnectionsMap.remove(connection.getUUID());
             if (saveAutoconnect)
                 saveAutoconnectListAsync();
-            if (mConnections.size() == 0)
+            if (mConnections.isEmpty())
                 IRCService.stop(mContext);
             else if (!mDestroying)
                 IRCService.start(mContext); // update connection count
@@ -327,15 +256,19 @@ public class ServerConnectionManager {
     int getReconnectDelay(int attemptNumber) {
         if (!AppSettings.isReconnectEnabled())
             return -1;
+
         List<ReconnectIntervalSetting.Rule> rules = AppSettings.getReconnectIntervalRules();
-        if (rules.size() == 0)
+
+        if (rules.isEmpty())
             return -1;
+
         int att = 0;
         for (ReconnectIntervalSetting.Rule rule : rules) {
             att += rule.repeatCount;
             if (attemptNumber < att)
                 return rule.reconnectDelay;
         }
+
         return rules.get(rules.size() - 1).reconnectDelay;
     }
 
@@ -417,17 +350,11 @@ public class ServerConnectionManager {
                 Context.CONNECTIVITY_SERVICE);
         if (mgr == null)
             return false;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Network network = mgr.getActiveNetwork();
-            if (network == null)
-                return false;
-            NetworkCapabilities capabilities = mgr.getNetworkCapabilities(network);
-            return capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);
-        } else {
-            @SuppressWarnings("deprecation")
-            NetworkInfo info = mgr.getNetworkInfo(ConnectivityManager.TYPE_WIFI);
-            return info != null && info.isConnected();
-        }
+        Network network = mgr.getActiveNetwork();
+        if (network == null)
+            return false;
+        NetworkCapabilities capabilities = mgr.getNetworkCapabilities(network);
+        return capabilities != null && capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);
     }
 
     public interface ConnectionsListener {
@@ -437,21 +364,6 @@ public class ServerConnectionManager {
         void onConnectionRemoved(ServerConnectionInfo connection);
 
     }
-
-    private static class ConnectedServerInfo {
-
-        public UUID uuid;
-        public List<String> channels;
-
+    public static class NickNotSetException extends RuntimeException {
     }
-
-    private static class ConnectedServersList {
-
-        public List<ConnectedServerInfo> servers;
-
-    }
-
-    public class NickNotSetException extends RuntimeException {
-    }
-
 }

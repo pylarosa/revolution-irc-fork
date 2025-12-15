@@ -428,7 +428,7 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
             return;
         }
 
-        // === CASE 2: Normal first load (most recent 100 messages) ===
+        // === CASE 2: Normal first loadConnectedServers (most recent 100 messages) ===
         mRoomRepo.loadRecentAsync(serverId, mChannelName, 100, (msgList) -> {
             updateMessageList(() -> {
                 mAdapter.setMessages(msgList.getMessages(), msgList.getMessageIds());

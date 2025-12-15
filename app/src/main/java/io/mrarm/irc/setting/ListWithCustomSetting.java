@@ -10,9 +10,10 @@ import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.ParcelFileDescriptor;
 import android.provider.OpenableColumns;
-import androidx.appcompat.app.AlertDialog;
 import android.view.View;
 import android.widget.Toast;
+
+import androidx.appcompat.app.AlertDialog;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -168,7 +169,7 @@ public class ListWithCustomSetting extends ListSetting implements
                     try {
                         Typeface.createFromFile(tempOutFile);
                     } catch (Exception e) {
-                        throw new IOException("Failed to load font", e);
+                        throw new IOException("Failed to loadConnectedServers font", e);
                     }
                 }
                 if (outFile.exists())
