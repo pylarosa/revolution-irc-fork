@@ -63,7 +63,7 @@ public class ServerConfigManager {
                 mServers.add(data);
                 mServersMap.put(data.uuid, data);
             } catch (IOException e) {
-                Log.e(TAG, "Failed to load server data");
+                Log.e(TAG, "Failed to loadConnectedServers server data");
                 e.printStackTrace();
             }
         }

@@ -98,7 +98,7 @@ public class ThemeManager {
                             fileName.length() - FILENAME_SUFFIX.length()));
                     loadTheme(themeFile, uuid);
                 } catch (IOException | IllegalArgumentException e) {
-                    Log.w("ThemeManager", "Failed to load theme: " + fileName);
+                    Log.w("ThemeManager", "Failed to loadConnectedServers theme: " + fileName);
                     themeFile.delete();
                 }
             }

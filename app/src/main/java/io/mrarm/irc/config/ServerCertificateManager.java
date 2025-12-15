@@ -71,7 +71,7 @@ public class ServerCertificateManager {
             try {
                 loadKeyStore(new FileInputStream(mKeyStoreFile));
             } catch (Exception e) {
-                Log.w(TAG, "Failed to load keystore");
+                Log.w(TAG, "Failed to loadConnectedServers keystore");
                 mKeyStore = null;
             }
         }

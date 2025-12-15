@@ -29,10 +29,10 @@ import io.mrarm.irc.chatlib.dto.MessageId;
 import io.mrarm.irc.chatlib.dto.MessageInfo;
 import io.mrarm.irc.config.NotificationRule;
 import io.mrarm.irc.config.NotificationRuleManager;
+import io.mrarm.irc.infrastructure.threading.AppAsyncExecutor;
 import io.mrarm.irc.storage.ConversationStateRepository;
 import io.mrarm.irc.storage.db.ChatLogDatabase;
 import io.mrarm.irc.storage.db.ConversationStateEntity;
-import io.mrarm.irc.util.Async;
 import io.mrarm.irc.util.ColoredTextBuilder;
 import io.mrarm.irc.util.IRCColorUtils;
 
@@ -70,7 +70,7 @@ public class ChannelNotificationManager {
     }
 
     void initUnreadState() {
-        Async.io(() -> {
+        AppAsyncExecutor.io(() -> {
             ConversationStateEntity state =
                     mConversationStateRepo.getState(
                             mConnection.getUUID(), mChannel
@@ -189,7 +189,7 @@ public class ChannelNotificationManager {
             int prevCount = mUnreadMessageCount;
 
             // Find newest message id for this channel
-            Async.io(() -> {
+            AppAsyncExecutor.io(() -> {
                 Long newestMessageId =
                         ChatLogDatabase.getInstance(
                                         mConnection.getConnectionManager().getContext()
@@ -324,7 +324,7 @@ public class ChannelNotificationManager {
 
             if (lastMsgId != null) {
                 long msgLogId = Long.parseLong(lastMsgId.toString());
-                Async.io(() -> {
+                AppAsyncExecutor.io(() -> {
                     mConversationStateRepo.markNotified(
                             mConnection.getUUID(),
                             mChannel,

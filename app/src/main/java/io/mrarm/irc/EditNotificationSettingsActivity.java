@@ -330,7 +330,7 @@ public class EditNotificationSettingsActivity extends ThemedActivity {
     }
 
     public boolean save(NotificationRule rule) {
-        // "unbind" all the items - this will in fact save their state instead
+        // "unbind" all the items - this will in fact saveConnectedServers their state instead
         for (int i = mRecyclerView.getChildCount() - 1; i >= 0; i--) {
             RecyclerView.ViewHolder holder = mRecyclerView.getChildViewHolder(mRecyclerView.getChildAt(i));
             if (holder instanceof EntryRecyclerViewAdapter.EntryHolder)

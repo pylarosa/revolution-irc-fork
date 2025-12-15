@@ -1,4 +1,4 @@
-package io.mrarm.irc.util
+package io.mrarm.irc.infrastructure.threading
 
 import android.os.Handler
 import android.os.Looper
@@ -6,7 +6,6 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.plus
 
 interface DelayScheduler {
     fun schedule(delayMillis: Long, runnable: Runnable)

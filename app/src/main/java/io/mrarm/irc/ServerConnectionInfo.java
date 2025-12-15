@@ -3,7 +3,6 @@ package io.mrarm.irc;
 import android.util.Log;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
@@ -24,11 +23,24 @@ import io.mrarm.irc.chatlib.message.WritableMessageStorageApi;
 import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
+import io.mrarm.irc.infrastructure.threading.DelayScheduler;
 import io.mrarm.irc.storage.MessageStorageRepository;
-import io.mrarm.irc.util.DelayScheduler;
 import io.mrarm.irc.util.IgnoreListMessageFilter;
 import io.mrarm.irc.util.StubMessageStorageApi;
 import io.mrarm.irc.util.UserAutoRunCommandHelper;
+
+// TODO: Break up this class into multiple focused components.
+// Current responsibilities mixed here:
+// 1) Connection lifecycle control (connect / disconnect / reconnect / connectivity handling)
+// 2) IRC protocol wiring (IRCConnection creation, handlers, capabilities, filters, DCC, SASL, ZNC)
+// 3) Persistence wiring (message storage repository, storage API injection, cleanup on close)
+// 4) UI state holder (ChatUIData, drawer expanded state, UI listeners)
+// 5) Notification bridge (NotificationManager.ConnectionManager)
+// 6) Domain state & coordination (channels list, connection flags, reconnect attempts, listeners)
+//
+// This class currently acts as a "connection session / aggregate root".
+// Refactor target: split into lifecycle controller, protocol adapter, storage adapter,
+// UI-facing state holder, and notification coordinator.
 
 public class ServerConnectionInfo {
 
@@ -50,7 +62,6 @@ public class ServerConnectionInfo {
     private final List<InfoChangeListener> mInfoListeners = new ArrayList<>();
     private final List<ChannelListChangeListener> mChannelsListeners = new ArrayList<>();
     private int mCurrentReconnectAttempt = -1;
-    int mChatLogStorageUpdateCounter = 0;
     private final ChatUIData mChatUIData = new ChatUIData();
 
     public ServerConnectionInfo(ServerConnectionManager manager, ServerConfigData config,
@@ -346,7 +357,7 @@ public class ServerConnectionInfo {
     }
 
     public void setChannels(List<String> channels) {
-        Collections.sort(channels, String::compareToIgnoreCase);
+        channels.sort(String::compareToIgnoreCase);
         synchronized (this) {
             mChannels = channels;
         }

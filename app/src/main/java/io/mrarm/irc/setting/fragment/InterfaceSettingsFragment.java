@@ -233,7 +233,7 @@ public class InterfaceSettingsFragment extends SettingsListFragment
         try {
             themeManager.saveTheme(newTheme);
         } catch (IOException e) {
-            Log.w("InterfaceSettings", "Failed to save new theme");
+            Log.w("InterfaceSettings", "Failed to saveConnectedServers new theme");
         }
     }
 
