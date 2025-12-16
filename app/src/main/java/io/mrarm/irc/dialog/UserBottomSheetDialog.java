@@ -24,9 +24,9 @@ import java.util.concurrent.TimeUnit;
 
 import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.R;
-import io.mrarm.irc.ServerConnectionInfo;
 import io.mrarm.irc.chatlib.ChatApi;
 import io.mrarm.irc.chatlib.dto.WhoisInfo;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.util.AdvancedDividerItemDecoration;
 
 public class UserBottomSheetDialog {
@@ -36,7 +36,7 @@ public class UserBottomSheetDialog {
     private RecyclerView mRecyclerView;
     private ItemAdapter mAdapter;
 
-    private ServerConnectionInfo mConnection;
+    private ServerConnectionSession mConnection;
     private String mNick;
     private String mUser;
     private String mRealName;
@@ -49,7 +49,7 @@ public class UserBottomSheetDialog {
         mContext = context;
     }
 
-    public void setConnection(ServerConnectionInfo connection) {
+    public void setConnection(ServerConnectionSession connection) {
         mConnection = connection;
     }
 

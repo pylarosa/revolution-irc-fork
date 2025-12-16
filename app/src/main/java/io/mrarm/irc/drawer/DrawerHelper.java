@@ -18,18 +18,18 @@ import java.util.List;
 import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.NotificationManager;
 import io.mrarm.irc.R;
-import io.mrarm.irc.ServerConnectionInfo;
-import io.mrarm.irc.ServerConnectionManager;
 import io.mrarm.irc.SettingsActivity;
 import io.mrarm.irc.chatlib.irc.ServerConnectionApi;
 import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.config.SettingsHelper;
 import io.mrarm.irc.config.UiSettingChangeCallback;
+import io.mrarm.irc.connection.ServerConnectionManager;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.dialog.ChannelSearchDialog;
 import io.mrarm.irc.view.LockableDrawerLayout;
 
 public class DrawerHelper implements ServerConnectionManager.ConnectionsListener,
-        ServerConnectionInfo.InfoChangeListener, ServerConnectionInfo.ChannelListChangeListener,
+        ServerConnectionSession.InfoChangeListener, ServerConnectionSession.ChannelListChangeListener,
         NotificationManager.UnreadMessageCountCallback,
         SharedPreferences.OnSharedPreferenceChangeListener {
 
@@ -174,7 +174,7 @@ public class DrawerHelper implements ServerConnectionManager.ConnectionsListener
                         }
 
 
-                        ServerConnectionInfo server = ch.mConnection;
+                        ServerConnectionSession server = ch.mConnection;
                         if (server != null) {
                             server.getApiInstance().leaveChannel(
                                     ch.mChannel,
@@ -225,7 +225,7 @@ public class DrawerHelper implements ServerConnectionManager.ConnectionsListener
         return mManageServersItem;
     }
 
-    public void setSelectedChannel(ServerConnectionInfo server, String channel) {
+    public void setSelectedChannel(ServerConnectionSession server, String channel) {
         mAdapter.setSelectedChannel(server, channel);
     }
 
@@ -246,29 +246,29 @@ public class DrawerHelper implements ServerConnectionManager.ConnectionsListener
     }
 
     @Override
-    public void onConnectionAdded(ServerConnectionInfo connection) {
+    public void onConnectionAdded(ServerConnectionSession connection) {
         mActivity.runOnUiThread(mAdapter::notifyServerListChanged);
     }
 
     @Override
-    public void onConnectionRemoved(ServerConnectionInfo connection) {
+    public void onConnectionRemoved(ServerConnectionSession connection) {
         mActivity.runOnUiThread(mAdapter::notifyServerListChanged);
     }
 
     @Override
-    public void onConnectionInfoChanged(ServerConnectionInfo connection) {
+    public void onConnectionInfoChanged(ServerConnectionSession connection) {
         mActivity.runOnUiThread(() -> {
             mAdapter.notifyServerInfoChanged(connection);
         });
     }
 
     @Override
-    public void onChannelListChanged(ServerConnectionInfo connection, List<String> newChannels) {
+    public void onChannelListChanged(ServerConnectionSession connection, List<String> newChannels) {
         mActivity.runOnUiThread(mAdapter::notifyServerListChanged);
     }
 
     @Override
-    public void onUnreadMessageCountChanged(ServerConnectionInfo info, String channel,
+    public void onUnreadMessageCountChanged(ServerConnectionSession info, String channel,
                                             int messageCount, int oldMessageCount) {
         mActivity.runOnUiThread(() -> {
             mAdapter.notifyChannelUnreadCountChanged(info, channel);

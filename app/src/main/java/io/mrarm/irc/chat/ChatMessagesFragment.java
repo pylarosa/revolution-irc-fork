@@ -35,8 +35,6 @@ import io.mrarm.irc.IRCChooserTargetService;
 import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.NotificationManager;
 import io.mrarm.irc.R;
-import io.mrarm.irc.ServerConnectionInfo;
-import io.mrarm.irc.ServerConnectionManager;
 import io.mrarm.irc.chatlib.ChannelInfoListener;
 import io.mrarm.irc.chatlib.StatusMessageListener;
 import io.mrarm.irc.chatlib.dto.ChannelInfo;
@@ -56,6 +54,8 @@ import io.mrarm.irc.config.ChatSettings;
 import io.mrarm.irc.config.MessageFormatSettings;
 import io.mrarm.irc.config.SettingsHelper;
 import io.mrarm.irc.config.UiSettingChangeCallback;
+import io.mrarm.irc.connection.ServerConnectionManager;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.storage.MessageStorageRepository;
 import io.mrarm.irc.util.LongPressSelectTouchListener;
 import io.mrarm.irc.util.ScrollPosLinearLayoutManager;
@@ -76,7 +76,7 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
 
     private List<NickWithPrefix> mMembers = null;
 
-    private ServerConnectionInfo mConnection;
+    private ServerConnectionSession mConnection;
     private String mChannelName;
     private String mChannelTopic;
     private MessageSenderInfo mChannelTopicSetBy;
@@ -142,7 +142,7 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
         }
     }
 
-    public static ChatMessagesFragment newInstance(ServerConnectionInfo server,
+    public static ChatMessagesFragment newInstance(ServerConnectionSession server,
                                                    String channelName) {
         ChatMessagesFragment fragment = new ChatMessagesFragment();
         Bundle args = new Bundle();
@@ -153,7 +153,7 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
         return fragment;
     }
 
-    public static ChatMessagesFragment newStatusInstance(ServerConnectionInfo server) {
+    public static ChatMessagesFragment newStatusInstance(ServerConnectionSession server) {
         ChatMessagesFragment fragment = new ChatMessagesFragment();
         Bundle args = new Bundle();
         args.putString(ARG_SERVER_UUID, server.getUUID().toString());
@@ -171,7 +171,7 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
         super.onCreate(savedInstanceState);
 
         UUID connectionUUID = UUID.fromString(getArguments().getString(ARG_SERVER_UUID));
-        ServerConnectionInfo connectionInfo = ServerConnectionManager.getInstance(getContext())
+        ServerConnectionSession connectionInfo = ServerConnectionManager.getInstance(getContext())
                 .getConnection(connectionUUID);
         mConnection = connectionInfo;
         mChannelName = getArguments().getString(ARG_CHANNEL_NAME);
@@ -519,7 +519,7 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
     }
 
     @Override
-    public void onUnreadMessageCountChanged(ServerConnectionInfo info, String channel, int messageCount, int oldMessageCount) {
+    public void onUnreadMessageCountChanged(ServerConnectionSession info, String channel, int messageCount, int oldMessageCount) {
         if (channel.equals(mChannelName)) {
             updateMessageList(this::updateUnreadCounter);
         }
@@ -599,7 +599,7 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
         }
     }
 
-    public ServerConnectionInfo getConnectionInfo() {
+    public ServerConnectionSession getConnectionInfo() {
         return mConnection;
     }
 

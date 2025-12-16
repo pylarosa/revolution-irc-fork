@@ -19,6 +19,8 @@ import androidx.lifecycle.lifecycleScope
 import io.mrarm.irc.chatlib.dto.MessageId
 import io.mrarm.irc.chatlib.dto.MessageInfo
 import io.mrarm.irc.chatlib.message.MessageListener
+import io.mrarm.irc.connection.ServerConnectionManager
+import io.mrarm.irc.connection.ServerConnectionSession
 import io.mrarm.irc.job.ServerPingScheduler
 import io.mrarm.irc.util.WarningHelper
 import kotlinx.coroutines.launch
@@ -34,7 +36,7 @@ import kotlinx.coroutines.launch
 class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListener {
 
     private var createdChannel = false
-    private val messageListeners = mutableMapOf<ServerConnectionInfo, MessageListener>()
+    private val messageListeners = mutableMapOf<ServerConnectionSession, MessageListener>()
     private var connectivityManager: ConnectivityManager? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
@@ -157,7 +159,7 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
 
     /** Called when a message is received on any subscribed connection, via Listener */
     private fun onMessage(
-        connection: ServerConnectionInfo,
+        connection: ServerConnectionSession,
         channel: String?,
         info: MessageInfo,
         messageId: MessageId
@@ -166,7 +168,7 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
     }
 
     /** Triggered when a new IRC connection is established in the manager. */
-    override fun onConnectionAdded(connection: ServerConnectionInfo) {
+    override fun onConnectionAdded(connection: ServerConnectionSession) {
         val listener = MessageListener { channel, info, id ->
             onMessage(connection, channel, info, id)
         }
@@ -180,7 +182,7 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
     }
 
     /** Triggered when a connection is removed; unsubscribes message listeners. */
-    override fun onConnectionRemoved(connection: ServerConnectionInfo) {
+    override fun onConnectionRemoved(connection: ServerConnectionSession) {
         val listener = messageListeners.remove(connection)
         if (listener != null) {
             connection.apiInstance?.messageStorageApi?.unsubscribeChannelMessages(

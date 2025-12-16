@@ -1,4 +1,4 @@
-package io.mrarm.irc;
+package io.mrarm.irc.connection;
 
 import android.util.Log;
 
@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+import io.mrarm.irc.NotificationManager;
+import io.mrarm.irc.UserOverrideTrustManager;
 import io.mrarm.irc.chat.ChatUIData;
 import io.mrarm.irc.chatlib.ChannelListListener;
 import io.mrarm.irc.chatlib.ChatApi;
@@ -14,38 +16,50 @@ import io.mrarm.irc.chatlib.irc.IRCConnection;
 import io.mrarm.irc.chatlib.irc.IRCConnectionRequest;
 import io.mrarm.irc.chatlib.irc.ServerConnectionApi;
 import io.mrarm.irc.chatlib.irc.ServerConnectionData;
-import io.mrarm.irc.chatlib.irc.cap.SASLCapability;
 import io.mrarm.irc.chatlib.irc.cap.SASLOptions;
-import io.mrarm.irc.chatlib.irc.filters.ZNCPlaybackMessageFilter;
-import io.mrarm.irc.chatlib.irc.handlers.MessageCommandHandler;
-import io.mrarm.irc.chatlib.message.RoomMessageStorageApi;
-import io.mrarm.irc.chatlib.message.WritableMessageStorageApi;
 import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.config.ServerConfigData;
-import io.mrarm.irc.config.ServerConfigManager;
-import io.mrarm.irc.connection.ReconnectPolicy;
 import io.mrarm.irc.infrastructure.threading.DelayScheduler;
-import io.mrarm.irc.storage.MessageStorageRepository;
-import io.mrarm.irc.util.IgnoreListMessageFilter;
 import io.mrarm.irc.util.StubMessageStorageApi;
 import io.mrarm.irc.util.UserAutoRunCommandHelper;
 
-// TODO: Break up this class into multiple focused components.
-// Current responsibilities mixed here:
-// 1) Connection lifecycle control (connect / disconnect / reconnect / connectivity handling)
-// 2) IRC protocol wiring (IRCConnection creation, handlers, capabilities, filters, DCC, SASL, ZNC)
-// 3) Persistence wiring (message storage repository, storage API injection, cleanup on close)
-// 4) UI state holder (ChatUIData, drawer expanded state, UI listeners)
-// 5) Notification bridge (NotificationManager.ConnectionManager)
-// 6) Domain state & coordination (channels list, connection flags, reconnect attempts, listeners)
-//
-// This class currently acts as a "connection session / aggregate root".
-// Refactor target: split into lifecycle controller, protocol adapter, storage adapter,
-// UI-facing state holder, and notification coordinator.
+/**
+ * ServerConnectionInfo
+ * <p>
+ * Represents a single live IRC connection session.
+ *
+ * <p>This class owns the complete lifecycle and runtime state of one server
+ * connection, including connection attempts, reconnect behavior, protocol
+ * integration, and UI-facing state.</p>
+ *
+ * <h3>Responsibilities</h3>
+ * <ul>
+ *   <li>Execute connection lifecycle operations (connect, disconnect, reconnect)</li>
+ *   <li>React to network connectivity changes</li>
+ *   <li>Maintain per-connection state (connected, connecting, channels, flags)</li>
+ *   <li>Coordinate reconnect execution using {@link io.mrarm.irc.connection.ReconnectPolicy}
+ *       and {@link io.mrarm.irc.infrastructure.threading.DelayScheduler}</li>
+ *   <li>Coordinate IRC protocol integration (delegated to {@link SessionInitializer})</li>
+ *   <li>Bridge runtime events to UI and notification layers</li>
+ * </ul>
+ *
+ * <h3>Design notes</h3>
+ * <p>This is intentionally a stateful, long-lived runtime object.
+ * It is NOT a pure data model.</p>
+ *
+ * <p>Application-level concerns such as how many connections exist,
+ * service lifecycle management, and persistence are delegated to
+ * {@link ServerConnectionManager}.</p>
+ *
+ * <p>This class currently acts as a connection session / aggregate root.
+ * Future refactors may split protocol wiring, UI state, and notification
+ * coordination into smaller components.</p>
+ */
 
-public class ServerConnectionInfo {
+public class ServerConnectionSession {
 
     private ServerConnectionManager mManager;
+    private final SessionInitializer sessionInitializer;
     private final ServerConfigData mServerConfig;
     private List<String> mChannels;
     private ChatApi mApi;
@@ -66,14 +80,17 @@ public class ServerConnectionInfo {
     private int mCurrentReconnectAttempt = -1;
     private final ChatUIData mChatUIData = new ChatUIData();
 
-    public ServerConnectionInfo(ServerConnectionManager manager,
-                                ServerConfigData config,
-                                IRCConnectionRequest connectionRequest,
-                                SASLOptions saslOptions,
-                                List<String> joinChannels,
-                                DelayScheduler reconnectScheduler,
-                                ReconnectPolicy reconnectPolicy) {
+
+    public ServerConnectionSession(ServerConnectionManager manager,
+                                   SessionInitializer initializer,
+                                   ServerConfigData config,
+                                   IRCConnectionRequest connectionRequest,
+                                   SASLOptions saslOptions,
+                                   List<String> joinChannels,
+                                   DelayScheduler reconnectScheduler,
+                                   ReconnectPolicy reconnectPolicy) {
         mManager = manager;
+        sessionInitializer = initializer;
         mServerConfig = config;
         mConnectionRequest = connectionRequest;
         mSASLOptions = saslOptions;
@@ -115,8 +132,10 @@ public class ServerConnectionInfo {
         synchronized (this) {
             if (mDisconnecting)
                 throw new RuntimeException("Trying to connect with mDisconnecting set");
+
             if (mConnected || mConnecting)
                 return;
+
             mConnecting = true;
             mUserDisconnectRequest = false;
             mReconnectQueueTime = -1L;
@@ -125,33 +144,13 @@ public class ServerConnectionInfo {
 
         IRCConnection connection;
         boolean createdNewConnection = false;
+
         if (mApi == null || !(mApi instanceof IRCConnection)) {
             connection = new IRCConnection();
-            ServerConfigManager.getInstance(mManager.getContext());
-            MessageStorageRepository roomRepo = MessageStorageRepository.getInstance(mManager.getContext());
+            sessionInitializer.attach(connection, this, mServerConfig, mSASLOptions);
 
-            connection.getServerConnectionData().setMessageStorageRepository(roomRepo);
-            connection.getServerConnectionData().setServerUUID(getUUID());
-
-            WritableMessageStorageApi api = new RoomMessageStorageApi(roomRepo, getUUID());
-            connection.getServerConnectionData().setMessageStorageApi(api);
-
-
-            connection.getServerConnectionData().getMessageFilterList().addMessageFilter(new IgnoreListMessageFilter(mServerConfig));
-            if (mSASLOptions != null)
-                connection.getServerConnectionData().getCapabilityManager().registerCapability(
-                        new SASLCapability(mSASLOptions));
-            connection.getServerConnectionData().getMessageFilterList().addMessageFilter(
-                    new ZNCPlaybackMessageFilter(connection.getServerConnectionData()));
-            MessageCommandHandler messageHandler = connection.getServerConnectionData()
-                    .getCommandHandlerList().getHandler(MessageCommandHandler.class);
-            DCCManager dccManager = DCCManager.getInstance(getConnectionManager().getContext());
-            messageHandler.setDCCServerManager(dccManager.getServer());
-            messageHandler.setDCCClientManager(dccManager.createClient(this));
-            messageHandler.setCtcpVersionReply(mManager.getContext()
-                    .getString(R.string.app_name), BuildConfig.VERSION_NAME, "Android");
-            connection.addDisconnectListener((IRCConnection conn, Exception reason) -> notifyDisconnected());
             createdNewConnection = true;
+
         } else {
             connection = (IRCConnection) mApi;
         }
@@ -230,7 +229,7 @@ public class ServerConnectionInfo {
         disconnect(true);
     }
 
-    private void notifyDisconnected() {
+    public void notifyDisconnected() {
         synchronized (this) {
             if (mAutoRunHelper != null)
                 mAutoRunHelper.cancelUserCommandExecution();
@@ -442,11 +441,11 @@ public class ServerConnectionInfo {
     };
 
     public interface InfoChangeListener {
-        void onConnectionInfoChanged(ServerConnectionInfo connection);
+        void onConnectionInfoChanged(ServerConnectionSession connection);
     }
 
     public interface ChannelListChangeListener {
-        void onChannelListChanged(ServerConnectionInfo connection, List<String> newChannels);
+        void onChannelListChanged(ServerConnectionSession connection, List<String> newChannels);
     }
 
 }

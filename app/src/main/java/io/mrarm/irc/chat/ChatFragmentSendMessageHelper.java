@@ -29,7 +29,6 @@ import java.util.List;
 
 import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.R;
-import io.mrarm.irc.ServerConnectionInfo;
 import io.mrarm.irc.chatlib.dto.NickWithPrefix;
 import io.mrarm.irc.chatlib.dto.WhoisInfo;
 import io.mrarm.irc.chatlib.irc.CommandHandlerList;
@@ -37,6 +36,7 @@ import io.mrarm.irc.chatlib.irc.IRCConnection;
 import io.mrarm.irc.chatlib.irc.ServerConnectionApi;
 import io.mrarm.irc.chatlib.irc.handlers.NickCommandHandler;
 import io.mrarm.irc.chatlib.irc.handlers.WhoisCommandHandler;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.dialog.UserBottomSheetDialog;
 import io.mrarm.irc.util.AutoMultilineTextListener;
 import io.mrarm.irc.util.ColoredTextBuilder;
@@ -69,7 +69,7 @@ public class ChatFragmentSendMessageHelper implements SendMessageHelper.Callback
     public ChatFragmentSendMessageHelper(ChatFragment chatFragment, View rootView) {
         mContext = rootView.getContext();
         mFragment = chatFragment;
-        ServerConnectionInfo connectionInfo = mFragment.getConnectionInfo();
+        ServerConnectionSession connectionInfo = mFragment.getConnectionInfo();
 
         mFormatBar = rootView.findViewById(R.id.format_bar);
         mFormatBarDivider = rootView.findViewById(R.id.format_bar_divider);

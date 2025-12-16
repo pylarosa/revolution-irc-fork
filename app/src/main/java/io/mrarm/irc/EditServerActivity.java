@@ -57,6 +57,8 @@ import java.util.UUID;
 import io.mrarm.irc.config.ServerCertificateManager;
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
+import io.mrarm.irc.connection.ServerConnectionManager;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.util.ExpandIconStateHelper;
 import io.mrarm.irc.util.PEMParser;
 import io.mrarm.irc.util.SimpleTextWatcher;
@@ -375,7 +377,7 @@ public class EditServerActivity extends ThemedActivity {
             mEditServer = new ServerConfigData();
             mEditServer.uuid = UUID.randomUUID();
         } else {
-            ServerConnectionInfo conn = ServerConnectionManager.getInstance(this).getConnection(mEditServer.uuid);
+            ServerConnectionSession conn = ServerConnectionManager.getInstance(this).getConnection(mEditServer.uuid);
             if (conn != null) {
                 conn.disconnect();
                 ServerConnectionManager.getInstance(this).removeConnection(conn);

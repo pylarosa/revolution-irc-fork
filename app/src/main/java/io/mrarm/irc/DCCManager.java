@@ -55,6 +55,8 @@ import io.mrarm.irc.chatlib.irc.dcc.DCCReverseClient;
 import io.mrarm.irc.chatlib.irc.dcc.DCCServer;
 import io.mrarm.irc.chatlib.irc.dcc.DCCServerManager;
 import io.mrarm.irc.chatlib.irc.dcc.DCCUtils;
+import io.mrarm.irc.connection.ServerConnectionManager;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.upnp.PortMapper;
 import io.mrarm.irc.upnp.rpc.AddPortMappingCall;
 import io.mrarm.irc.util.FormatUtils;
@@ -194,7 +196,7 @@ public class DCCManager implements DCCServerManager.UploadListener, DCCClient.Cl
         return mHistory;
     }
 
-    public DCCClientManager createClient(ServerConnectionInfo server) {
+    public DCCClientManager createClient(ServerConnectionSession server) {
         return new ClientImpl(server);
     }
 
@@ -216,8 +218,8 @@ public class DCCManager implements DCCServerManager.UploadListener, DCCClient.Cl
             mUploads.put(uploadEntry.getServer(), uploadEntry);
 
             ServerConnectionData connection = uploadEntry.getConnection();
-            ServerConnectionInfo connectionInfo = null;
-            for (ServerConnectionInfo info : ServerConnectionManager.getInstance(mContext)
+            ServerConnectionSession connectionInfo = null;
+            for (ServerConnectionSession info : ServerConnectionManager.getInstance(mContext)
                     .getConnections()) {
                 if (((ServerConnectionApi) info.getApiInstance()).getServerConnectionData()
                         == connection) {
@@ -412,7 +414,7 @@ public class DCCManager implements DCCServerManager.UploadListener, DCCClient.Cl
         }
     }
 
-    public void startUpload(ServerConnectionInfo server, String channel,
+    public void startUpload(ServerConnectionSession server, String channel,
                             DCCServer.FileChannelFactory file, String fileName, long fileSize) {
         ServerConnectionData connectionData = ((ServerConnectionApi) server.getApiInstance())
                 .getServerConnectionData();
@@ -481,7 +483,7 @@ public class DCCManager implements DCCServerManager.UploadListener, DCCClient.Cl
             this.mServerUUID = uuid;
             this.mServerName = serverName;
         }
-        public UploadServerInfo(ServerConnectionInfo connectionInfo) {
+        public UploadServerInfo(ServerConnectionSession connectionInfo) {
             this.mServerUUID = connectionInfo.getUUID();
             this.mServerName = connectionInfo.getName();
         }
@@ -512,7 +514,7 @@ public class DCCManager implements DCCServerManager.UploadListener, DCCClient.Cl
         private DCCReverseClient mReverseClient;
         private Uri mDownloadedTo;
 
-        private DownloadInfo(ServerConnectionInfo server, MessagePrefix sender, String fileName,
+        private DownloadInfo(ServerConnectionSession server, MessagePrefix sender, String fileName,
                              long fileSize, String address, int port) {
             mServerUUID = server.getUUID();
             mServerName = server.getName();
@@ -523,7 +525,7 @@ public class DCCManager implements DCCServerManager.UploadListener, DCCClient.Cl
             mPort = port;
             mReverseUploadId = -1;
         }
-        private DownloadInfo(ServerConnectionInfo server, MessagePrefix sender, String fileName,
+        private DownloadInfo(ServerConnectionSession server, MessagePrefix sender, String fileName,
                              long fileSize, int reverseUploadId) {
             mServerUUID = server.getUUID();
             mServerName = server.getName();
@@ -590,7 +592,7 @@ public class DCCManager implements DCCServerManager.UploadListener, DCCClient.Cl
         }
 
         private void createClient() throws IOException {
-            ServerConnectionInfo connection = ServerConnectionManager.getInstance(mContext)
+            ServerConnectionSession connection = ServerConnectionManager.getInstance(mContext)
                     .getConnection(mServerUUID);
             if (connection == null)
                 throw new IOException("The connection doesn't exist");
@@ -929,9 +931,9 @@ public class DCCManager implements DCCServerManager.UploadListener, DCCClient.Cl
 
     private class ClientImpl extends DCCClientManager {
 
-        private ServerConnectionInfo mServer;
+        private ServerConnectionSession mServer;
 
-        public ClientImpl(ServerConnectionInfo server) {
+        public ClientImpl(ServerConnectionSession server) {
             mServer = server;
         }
 

@@ -1,7 +1,6 @@
 package io.mrarm.irc.dialog;
 
 import android.content.Context;
-import androidx.annotation.NonNull;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
@@ -9,13 +8,15 @@ import android.util.Pair;
 import android.view.View;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 import io.mrarm.irc.R;
-import io.mrarm.irc.ServerConnectionInfo;
-import io.mrarm.irc.ServerConnectionManager;
+import io.mrarm.irc.connection.ServerConnectionManager;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.util.ClickableRecyclerViewAdapter;
 import io.mrarm.irc.util.StyledAttributesHelper;
 
@@ -29,7 +30,7 @@ public class ChannelSearchDialog extends SearchDialog {
         getSearchView().setBackgroundColor(StyledAttributesHelper.getColor(context, R.attr.colorBackgroundFloating, 0));
 
         mAdapter = new SuggestionsAdapter(context);
-        mAdapter.setItemClickListener((int index, Pair<ServerConnectionInfo, String> value) ->{
+        mAdapter.setItemClickListener((int index, Pair<ServerConnectionSession, String> value) ->{
             if (listener != null)
                 listener.onChannelSelected(value.first, value.second);
             dismiss();
@@ -41,7 +42,7 @@ public class ChannelSearchDialog extends SearchDialog {
         mAdapter.filterWithQuery(newText);
     }
 
-    public static class SuggestionsAdapter extends ClickableRecyclerViewAdapter<SuggestionsAdapter.SuggestionHolder, Pair<ServerConnectionInfo, String>> {
+    public static class SuggestionsAdapter extends ClickableRecyclerViewAdapter<SuggestionsAdapter.SuggestionHolder, Pair<ServerConnectionSession, String>> {
 
         private final ServerConnectionManager mConnectionManager;
         private final int mSecondaryTextColor;
@@ -58,22 +59,22 @@ public class ChannelSearchDialog extends SearchDialog {
         }
 
         public void filterWithQuery(String query) {
-            List<Pair<ServerConnectionInfo, String>> ret = new ArrayList<>();
-            for (ServerConnectionInfo info : mConnectionManager.getConnections()) {
+            List<Pair<ServerConnectionSession, String>> ret = new ArrayList<>();
+            for (ServerConnectionSession info : mConnectionManager.getConnections()) {
                 for (String channel : info.getChannels()) {
                     int iof = channel.indexOf(query);
                     if (iof != -1)
                         ret.add(new Pair<>(info, channel));
                 }
             }
-            Collections.sort(ret, (Pair<ServerConnectionInfo, String> l,
-                                   Pair<ServerConnectionInfo, String> r) ->
+            Collections.sort(ret, (Pair<ServerConnectionSession, String> l,
+                                   Pair<ServerConnectionSession, String> r) ->
                     Integer.compare(l.second.indexOf(query), r.second.indexOf(query)));
             mHighlightQuery = query;
             setItems(ret);
         }
 
-        public class SuggestionHolder extends ClickableRecyclerViewAdapter.ViewHolder<Pair<ServerConnectionInfo, String>> {
+        public class SuggestionHolder extends ClickableRecyclerViewAdapter.ViewHolder<Pair<ServerConnectionSession, String>> {
             private TextView mText;
 
             public SuggestionHolder(View itemView) {
@@ -82,7 +83,7 @@ public class ChannelSearchDialog extends SearchDialog {
             }
 
             @Override
-            public void bind(Pair<ServerConnectionInfo, String> item) {
+            public void bind(Pair<ServerConnectionSession, String> item) {
                 String name = item.first.getName();
                 String channel = item.second;
                 int iof = channel.indexOf(mHighlightQuery);
@@ -97,7 +98,7 @@ public class ChannelSearchDialog extends SearchDialog {
 
     public interface ChannelSelectedListener {
 
-        void onChannelSelected(ServerConnectionInfo server, String channel);
+        void onChannelSelected(ServerConnectionSession server, String channel);
 
     }
 

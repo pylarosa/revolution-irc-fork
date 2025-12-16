@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import io.mrarm.irc.ServerConnectionManager;
+import io.mrarm.irc.connection.ServerConnectionManager;
 
 public class ServerConfigManager {
 

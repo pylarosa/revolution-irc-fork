@@ -18,10 +18,10 @@ import java.util.Set;
 
 import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.R;
-import io.mrarm.irc.ServerConnectionInfo;
 import io.mrarm.irc.chatlib.dto.StatusMessageInfo;
 import io.mrarm.irc.chatlib.dto.StatusMessageList;
 import io.mrarm.irc.chatlib.dto.WhoisStatusMessageInfo;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.dialog.UserBottomSheetDialog;
 import io.mrarm.irc.util.AlignToPointSpan;
 import io.mrarm.irc.util.IRCColorUtils;
@@ -32,13 +32,13 @@ public class ServerStatusMessagesAdapter extends RecyclerView.Adapter<RecyclerVi
     private static final int TYPE_MESSAGE = 0;
     private static final int TYPE_EXPANDABLE_MESSAGE = 1;
 
-    private ServerConnectionInfo mConnection;
+    private ServerConnectionSession mConnection;
     private StatusMessageList mMessages;
     private Set<StatusMessageInfo> mExpandedMessages;
     private Typeface mTypeface;
     private int mFontSize;
 
-    public ServerStatusMessagesAdapter(ServerConnectionInfo connection,
+    public ServerStatusMessagesAdapter(ServerConnectionSession connection,
                                        StatusMessageList messages) {
         mConnection = connection;
         setMessages(messages);

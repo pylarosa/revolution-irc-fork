@@ -23,6 +23,8 @@ import io.mrarm.irc.chatlib.dto.MessageInfo;
 import io.mrarm.irc.chatlib.irc.ServerConnectionApi;
 import io.mrarm.irc.config.NotificationRule;
 import io.mrarm.irc.config.NotificationRuleManager;
+import io.mrarm.irc.connection.ServerConnectionManager;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.util.WarningHelper;
 
 public class NotificationManager {
@@ -44,7 +46,7 @@ public class NotificationManager {
 
     private String mLastSummaryChannel = null;
 
-    public void processMessage(Context context, ServerConnectionInfo connection, String channel,
+    public void processMessage(Context context, ServerConnectionSession connection, String channel,
                                MessageInfo info, MessageId messageId) {
         ChannelNotificationManager channelManager = connection.getNotificationManager().getChannelManager(channel, true);
         if (info.getType() == MessageInfo.MessageType.NORMAL ||
@@ -69,7 +71,7 @@ public class NotificationManager {
         }
     }
 
-    public boolean shouldMessageUseMentionFormatting(ServerConnectionInfo connection,
+    public boolean shouldMessageUseMentionFormatting(ServerConnectionSession connection,
                                                      String channel, MessageInfo info) {
         if (info.getMessage() == null || info.getSender() == null ||
                 info.getSender().getNick().equals(connection.getUserNick()))
@@ -78,7 +80,7 @@ public class NotificationManager {
         return (rule != null && rule.settings.mentionFormatting);
     }
 
-    public void clearAllNotifications(Context context, ServerConnectionInfo connection) {
+    public void clearAllNotifications(Context context, ServerConnectionSession connection) {
         ConnectionManager connectionData = connection.getNotificationManager();
         synchronized (connectionData.mChannels) {
             for (ChannelNotificationManager mgr : connectionData.mChannels.values())
@@ -88,7 +90,7 @@ public class NotificationManager {
         updateSummaryNotification(context, null);
     }
 
-    private NotificationRule findNotificationRule(ServerConnectionInfo connection, String channel,
+    private NotificationRule findNotificationRule(ServerConnectionSession connection, String channel,
                                                   MessageInfo message) {
         ChatApi api = connection.getApiInstance();
         if (api instanceof ServerConnectionApi && channel != null && !channel.isEmpty() &&
@@ -112,7 +114,7 @@ public class NotificationManager {
         return null;
     }
 
-    public void onNotificationDismissed(ServerConnectionInfo connection,
+    public void onNotificationDismissed(ServerConnectionSession connection,
                                         String channel) {
         ChannelNotificationManager channelManager = connection.getNotificationManager()
                 .getChannelManager(channel, false);
@@ -126,7 +128,7 @@ public class NotificationManager {
         boolean isLong = false;
         int notificationCount = 0;
         StringBuilder longBuilder = new StringBuilder();
-        for (ServerConnectionInfo info : ServerConnectionManager.getInstance(context).getConnections()) {
+        for (ServerConnectionSession info : ServerConnectionManager.getInstance(context).getConnections()) {
             ConnectionManager cm = info.getNotificationManager();
             synchronized (cm.mChannels) {
                 for (ChannelNotificationManager channelManager : cm.mChannels.values()) {
@@ -207,7 +209,7 @@ public class NotificationManager {
         }
     }
 
-    public void callUnreadMessageCountCallbacks(ServerConnectionInfo connection, String channel,
+    public void callUnreadMessageCountCallbacks(ServerConnectionSession connection, String channel,
                                                 int messageCount, int oldMessageCount) {
         synchronized (mGlobalUnreadCallbacks) {
             for (UnreadMessageCountCallback cb : mGlobalUnreadCallbacks) {
@@ -269,16 +271,16 @@ public class NotificationManager {
 
     public static class ConnectionManager {
 
-        private final ServerConnectionInfo mConnection;
+        private final ServerConnectionSession mConnection;
         private final Map<NotificationRule, Pattern> mCompiledPatterns = new HashMap<>();
         private final Map<String, ChannelNotificationManager> mChannels = new HashMap<>();
         private final List<UnreadMessageCountCallback> mUnreadCallbacks = new ArrayList<>();
 
-        public ConnectionManager(ServerConnectionInfo connection) {
+        public ConnectionManager(ServerConnectionSession connection) {
             mConnection = connection;
         }
 
-        public ServerConnectionInfo getConnection() {
+        public ServerConnectionSession getConnection() {
             return mConnection;
         }
 
@@ -328,7 +330,7 @@ public class NotificationManager {
 
     public interface UnreadMessageCountCallback {
 
-        void onUnreadMessageCountChanged(ServerConnectionInfo info, String channel,
+        void onUnreadMessageCountChanged(ServerConnectionSession info, String channel,
                                          int messageCount, int oldMessageCount);
 
     }

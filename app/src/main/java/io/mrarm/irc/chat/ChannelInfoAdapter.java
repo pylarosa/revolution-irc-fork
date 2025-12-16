@@ -19,8 +19,8 @@ import java.util.List;
 
 import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.R;
-import io.mrarm.irc.ServerConnectionInfo;
 import io.mrarm.irc.chatlib.dto.NickWithPrefix;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.dialog.UserBottomSheetDialog;
 import io.mrarm.irc.util.IRCColorUtils;
 import io.mrarm.irc.util.LinkHelper;
@@ -33,7 +33,7 @@ public class ChannelInfoAdapter extends RecyclerView.Adapter {
     public static final int TYPE_TOPIC = 1;
     public static final int TYPE_MEMBER = 2;
 
-    private ServerConnectionInfo mConnection;
+    private ServerConnectionSession mConnection;
     private String mTopic;
     private String mTopicSetBy;
     private Date mTopicSetOn;
@@ -42,7 +42,7 @@ public class ChannelInfoAdapter extends RecyclerView.Adapter {
     public ChannelInfoAdapter() {
     }
 
-    public void setData(ServerConnectionInfo connection, String topic, String topicSetBy,
+    public void setData(ServerConnectionSession connection, String topic, String topicSetBy,
                         Date topicSetOn, List<NickWithPrefix> members) {
         mConnection = connection;
         mTopic = topic;
@@ -173,7 +173,7 @@ public class ChannelInfoAdapter extends RecyclerView.Adapter {
 
     public static class MemberHolder extends RecyclerView.ViewHolder {
 
-        private ServerConnectionInfo mConnection;
+        private ServerConnectionSession mConnection;
         private TextView mText;
 
         public MemberHolder(View v) {
@@ -189,7 +189,7 @@ public class ChannelInfoAdapter extends RecyclerView.Adapter {
             });
         }
 
-        public void bind(ServerConnectionInfo connection, NickWithPrefix nickWithPrefix) {
+        public void bind(ServerConnectionSession connection, NickWithPrefix nickWithPrefix) {
             mConnection = connection;
             bindText(mText, nickWithPrefix);
             mText.setTag(nickWithPrefix.getNick());

@@ -13,10 +13,10 @@ import android.util.Log;
 
 import androidx.annotation.RequiresApi;
 
-import io.mrarm.irc.ServerConnectionManager;
 import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.config.SettingsHelper;
 import io.mrarm.irc.config.UiSettingChangeCallback;
+import io.mrarm.irc.connection.ServerConnectionManager;
 
 public class ServerPingScheduler {
 

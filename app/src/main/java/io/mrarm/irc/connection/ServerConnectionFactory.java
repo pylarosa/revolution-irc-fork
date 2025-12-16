@@ -10,8 +10,6 @@ import javax.net.ssl.KeyManager;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 
-import io.mrarm.irc.ServerConnectionInfo;
-import io.mrarm.irc.ServerConnectionManager;
 import io.mrarm.irc.UserKeyManager;
 import io.mrarm.irc.UserOverrideTrustManager;
 import io.mrarm.irc.chatlib.irc.IRCConnectionRequest;
@@ -30,9 +28,9 @@ public class ServerConnectionFactory {
         this.reconnectScheduler = reconnectScheduler;
     }
 
-    public ServerConnectionInfo create(ServerConnectionManager manager,
-                                       ServerConfigData data,
-                                       List<String> joinChannels) {
+    public ServerConnectionSession create(ServerConnectionManager manager,
+                                          ServerConfigData data,
+                                          List<String> joinChannels) {
 
         IRCConnectionRequest request = new IRCConnectionRequest();
         ReconnectPolicy reconnectPolicy = new ReconnectPolicy();
@@ -91,7 +89,10 @@ public class ServerConnectionFactory {
                 throw new RuntimeException(e);
             }
         }
-        return new ServerConnectionInfo(
-                manager, data, request, saslOptions, joinChannels, reconnectScheduler, reconnectPolicy);
+
+        SessionInitializer sessionInitializer = new SessionInitializer(appContext);
+
+        return new ServerConnectionSession(
+                manager, sessionInitializer, data, request, saslOptions, joinChannels, reconnectScheduler, reconnectPolicy);
     }
 }

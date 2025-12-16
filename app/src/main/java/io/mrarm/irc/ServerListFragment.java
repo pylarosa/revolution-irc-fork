@@ -20,6 +20,8 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
+import io.mrarm.irc.connection.ServerConnectionManager;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.dialog.MenuBottomSheetDialog;
 
 @Keep
@@ -50,10 +52,10 @@ public class ServerListFragment extends Fragment {
 
         mAdapter = new ServerListAdapter(getActivity());
         recyclerView.setAdapter(mAdapter);
-        mAdapter.setActiveServerClickListener((ServerConnectionInfo info) -> {
+        mAdapter.setActiveServerClickListener((ServerConnectionSession info) -> {
             ((MainActivity) getActivity()).openServer(info, null, null, true);
         });
-        mAdapter.setActiveServerLongClickListener((ServerConnectionInfo info) -> {
+        mAdapter.setActiveServerLongClickListener((ServerConnectionSession info) -> {
             MenuBottomSheetDialog menu = new MenuBottomSheetDialog(getContext());
             menu.addItem(R.string.action_open, R.drawable.ic_open_in_new
                     , (MenuBottomSheetDialog.Item item) -> {
