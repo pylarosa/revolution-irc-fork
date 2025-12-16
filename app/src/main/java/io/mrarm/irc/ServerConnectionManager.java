@@ -12,7 +12,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
-import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
 import io.mrarm.irc.connection.ServerConnectionFactory;
@@ -21,7 +20,6 @@ import io.mrarm.irc.infrastructure.threading.DelayScheduler;
 import io.mrarm.irc.infrastructure.threading.ManagedCoroutineScope;
 import io.mrarm.irc.infrastructure.threading.SchedulerProvider;
 import io.mrarm.irc.infrastructure.threading.SchedulerProviderHolder;
-import io.mrarm.irc.setting.ReconnectIntervalSetting;
 import kotlin.Unit;
 import kotlin.coroutines.EmptyCoroutineContext;
 import kotlinx.coroutines.BuildersKt;
@@ -253,24 +251,6 @@ public class ServerConnectionManager {
         }
     }
 
-    int getReconnectDelay(int attemptNumber) {
-        if (!AppSettings.isReconnectEnabled())
-            return -1;
-
-        List<ReconnectIntervalSetting.Rule> rules = AppSettings.getReconnectIntervalRules();
-
-        if (rules.isEmpty())
-            return -1;
-
-        int att = 0;
-        for (ReconnectIntervalSetting.Rule rule : rules) {
-            att += rule.repeatCount;
-            if (attemptNumber < att)
-                return rule.reconnectDelay;
-        }
-
-        return rules.get(rules.size() - 1).reconnectDelay;
-    }
 
     public void addListener(ConnectionsListener listener) {
         synchronized (mListeners) {
@@ -364,6 +344,7 @@ public class ServerConnectionManager {
         void onConnectionRemoved(ServerConnectionInfo connection);
 
     }
+
     public static class NickNotSetException extends RuntimeException {
     }
 }

@@ -23,6 +23,7 @@ import io.mrarm.irc.chatlib.message.WritableMessageStorageApi;
 import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
+import io.mrarm.irc.connection.ReconnectPolicy;
 import io.mrarm.irc.infrastructure.threading.DelayScheduler;
 import io.mrarm.irc.storage.MessageStorageRepository;
 import io.mrarm.irc.util.IgnoreListMessageFilter;
@@ -56,6 +57,7 @@ public class ServerConnectionInfo {
     private boolean mDisconnecting = false;
     private boolean mUserDisconnectRequest = false;
     private long mReconnectQueueTime = -1L;
+    private ReconnectPolicy mReconnectPolicy;
     private final DelayScheduler mReconnectScheduler;
     private final NotificationManager.ConnectionManager mNotificationData;
     private UserAutoRunCommandHelper mAutoRunHelper;
@@ -64,9 +66,13 @@ public class ServerConnectionInfo {
     private int mCurrentReconnectAttempt = -1;
     private final ChatUIData mChatUIData = new ChatUIData();
 
-    public ServerConnectionInfo(ServerConnectionManager manager, ServerConfigData config,
-                                IRCConnectionRequest connectionRequest, SASLOptions saslOptions,
-                                List<String> joinChannels, DelayScheduler reconnectScheduler) {
+    public ServerConnectionInfo(ServerConnectionManager manager,
+                                ServerConfigData config,
+                                IRCConnectionRequest connectionRequest,
+                                SASLOptions saslOptions,
+                                List<String> joinChannels,
+                                DelayScheduler reconnectScheduler,
+                                ReconnectPolicy reconnectPolicy) {
         mManager = manager;
         mServerConfig = config;
         mConnectionRequest = connectionRequest;
@@ -74,6 +80,7 @@ public class ServerConnectionInfo {
         mNotificationData = new NotificationManager.ConnectionManager(this);
         mChannels = joinChannels;
         mReconnectScheduler = reconnectScheduler;
+        mReconnectPolicy = reconnectPolicy;
         if (mChannels != null)
             mChannels.sort(String::compareToIgnoreCase);
     }
@@ -242,7 +249,7 @@ public class ServerConnectionInfo {
             if (mUserDisconnectRequest)
                 return;
         }
-        int reconnectDelay = mManager.getReconnectDelay(mCurrentReconnectAttempt++);
+        int reconnectDelay = mReconnectPolicy.getReconnectDelay(mCurrentReconnectAttempt++);
         if (reconnectDelay == -1)
             return;
         Log.i("ServerConnectionInfo", "Queuing reconnect in " + reconnectDelay + " ms");
@@ -278,7 +285,7 @@ public class ServerConnectionInfo {
         if (AppSettings.isReconnectOnConnectivityChangeEnabled()) {
             connect(); // this will be ignored if we are already connected
         } else if (mReconnectQueueTime != -1L) {
-            long reconnectDelay = mManager.getReconnectDelay(mCurrentReconnectAttempt++);
+            long reconnectDelay = mReconnectPolicy.getReconnectDelay(mCurrentReconnectAttempt++);
             if (reconnectDelay == -1)
                 return;
             reconnectDelay = reconnectDelay - (System.nanoTime() - mReconnectQueueTime) / 1000000L;

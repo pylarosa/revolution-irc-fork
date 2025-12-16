@@ -33,9 +33,12 @@ public class ServerConnectionFactory {
     public ServerConnectionInfo create(ServerConnectionManager manager,
                                        ServerConfigData data,
                                        List<String> joinChannels) {
+
         IRCConnectionRequest request = new IRCConnectionRequest();
-        request
-                .setServerAddress(data.address, data.port);
+        ReconnectPolicy reconnectPolicy = new ReconnectPolicy();
+
+        request.setServerAddress(data.address, data.port);
+
         if (data.charset != null)
             request.setCharset(Charset.forName(data.charset));
         if (data.nicks != null && !data.nicks.isEmpty()) {
@@ -89,6 +92,6 @@ public class ServerConnectionFactory {
             }
         }
         return new ServerConnectionInfo(
-                manager, data, request, saslOptions, joinChannels, reconnectScheduler);
+                manager, data, request, saslOptions, joinChannels, reconnectScheduler, reconnectPolicy);
     }
 }
