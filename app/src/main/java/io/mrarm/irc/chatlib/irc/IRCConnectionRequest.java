@@ -1,6 +1,7 @@
 package io.mrarm.irc.chatlib.irc;
 
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -14,7 +15,7 @@ public class IRCConnectionRequest {
     private boolean serverSSL = false;
     private SocketFactory sslSocketFactory;
     private HostnameVerifier sslHostnameVerifier;
-    private Charset charset = Charset.forName("UTF-8");
+    private Charset charset = StandardCharsets.UTF_8;
     private String serverPass;
     private String user;
     private int userMode;
