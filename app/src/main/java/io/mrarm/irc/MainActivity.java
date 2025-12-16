@@ -52,6 +52,8 @@ import io.mrarm.irc.chatlib.irc.dcc.DCCServer;
 import io.mrarm.irc.chatlib.irc.dcc.DCCUtils;
 import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.config.ChatSettings;
+import io.mrarm.irc.connection.ServerConnectionManager;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.dialog.UserSearchDialog;
 import io.mrarm.irc.drawer.DrawerHelper;
 import io.mrarm.irc.util.NightModeRecreateHelper;
@@ -98,7 +100,7 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
             new DCCManager.ActivityDialogHandler(this, REQUEST_CODE_DCC_FOLDER_PERMISSION,
                     REQUEST_CODE_DCC_STORAGE_PERMISSION);
 
-    public static Intent getLaunchIntent(Context context, ServerConnectionInfo server, String channel, String messageId) {
+    public static Intent getLaunchIntent(Context context, ServerConnectionSession server, String channel, String messageId) {
         Intent intent = new Intent(context, MainActivity.class);
         if (server != null)
             intent.putExtra(ARG_SERVER_UUID, server.getUUID().toString());
@@ -109,7 +111,7 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
         return intent;
     }
 
-    public static Intent getLaunchIntent(Context context, ServerConnectionInfo server, String channel) {
+    public static Intent getLaunchIntent(Context context, ServerConnectionSession server, String channel) {
         return getLaunchIntent(context, server, channel, null);
     }
 
@@ -137,7 +139,7 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
         mDrawerHelper = new DrawerHelper(this);
         mDrawerHelper.registerListeners();
 
-        mDrawerHelper.setChannelClickListener((ServerConnectionInfo server, String channel) -> {
+        mDrawerHelper.setChannelClickListener((ServerConnectionSession server, String channel) -> {
             mDrawerLayout.closeDrawers();
             Fragment f = getCurrentFragment();
             if (f instanceof ChatFragment && ((ChatFragment) f).getConnectionInfo() == server)
@@ -178,7 +180,7 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
 
     private void handleIntent(Intent intent) {
         String serverUUID = intent.getStringExtra(ARG_SERVER_UUID);
-        ServerConnectionInfo server = null;
+        ServerConnectionSession server = null;
         if (serverUUID != null)
             server = ServerConnectionManager.getInstance(this).getConnection(
                     UUID.fromString(serverUUID));
@@ -254,7 +256,7 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
         super.onRestoreInstanceState(savedInstanceState);
         String serverUUID = savedInstanceState.getString(ARG_SERVER_UUID);
         if (serverUUID != null) {
-            ServerConnectionInfo server = ServerConnectionManager.getInstance(this).getConnection(UUID.fromString(serverUUID));
+            ServerConnectionSession server = ServerConnectionManager.getInstance(this).getConnection(UUID.fromString(serverUUID));
             openServer(server, savedInstanceState.getString(ARG_CHANNEL_NAME));
         }
     }
@@ -314,7 +316,7 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
         // mDrawerLayout.addDrawerListener(toggle);
     }
 
-    public ChatFragment openServer(ServerConnectionInfo server, String channel, String messageId,
+    public ChatFragment openServer(ServerConnectionSession server, String channel, String messageId,
                                    boolean fromServerList) {
         dismissFragmentDialog();
         setChannelInfoDrawerVisible(false);
@@ -337,7 +339,7 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
         return fragment;
     }
 
-    public ChatFragment openServer(ServerConnectionInfo server, String channel) {
+    public ChatFragment openServer(ServerConnectionSession server, String channel) {
         return openServer(server, channel, null, false);
     }
 
@@ -385,7 +387,7 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
         }
     }
 
-    public void setCurrentChannelInfo(ServerConnectionInfo server, String topic, String topicSetBy,
+    public void setCurrentChannelInfo(ServerConnectionSession server, String topic, String topicSetBy,
                                       Date topicSetOn, List<NickWithPrefix> members) {
         if (mChannelInfoAdapter == null)
             return;
@@ -491,7 +493,7 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
                         api.joinChannels(Arrays.asList(channels), null, null);
                     })
                     .setNeutralButton(R.string.title_activity_channel_list, (DialogInterface d, int which) -> {
-                        ServerConnectionInfo info = ((ChatFragment) getCurrentFragment()).getConnectionInfo();
+                        ServerConnectionSession info = ((ChatFragment) getCurrentFragment()).getConnectionInfo();
                         Intent intent = new Intent(this, ChannelListActivity.class);
                         intent.putExtra(ChannelListActivity.ARG_SERVER_UUID, info.getUUID().toString());
                         startActivity(intent);
@@ -519,14 +521,14 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
         } else if (id == R.id.action_members) {
             mDrawerLayout.openDrawer(GravityCompat.END);
         } else if (id == R.id.action_ignore_list) {
-            ServerConnectionInfo info = ((ChatFragment) getCurrentFragment()).getConnectionInfo();
+            ServerConnectionSession info = ((ChatFragment) getCurrentFragment()).getConnectionInfo();
             Intent intent = new Intent(this, IgnoreListActivity.class);
             intent.putExtra(IgnoreListActivity.ARG_SERVER_UUID, info.getUUID().toString());
             startActivity(intent);
         } else if (id == R.id.action_disconnect) {
             ((ChatFragment) getCurrentFragment()).getConnectionInfo().disconnect();
         } else if (id == R.id.action_disconnect_and_close || id == R.id.action_close) {
-            ServerConnectionInfo info = ((ChatFragment) getCurrentFragment()).getConnectionInfo();
+            ServerConnectionSession info = ((ChatFragment) getCurrentFragment()).getConnectionInfo();
             info.disconnect();
             ServerConnectionManager.getInstance(this).removeConnection(info);
             openManageServers();

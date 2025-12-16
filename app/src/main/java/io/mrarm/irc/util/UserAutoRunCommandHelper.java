@@ -21,19 +21,19 @@ import java.util.Map;
 
 import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.R;
-import io.mrarm.irc.ServerConnectionInfo;
 import io.mrarm.irc.chatlib.irc.IRCConnection;
 import io.mrarm.irc.config.CommandAliasManager;
+import io.mrarm.irc.connection.ServerConnectionSession;
 
-public class UserAutoRunCommandHelper implements ServerConnectionInfo.ChannelListChangeListener {
+public class UserAutoRunCommandHelper implements ServerConnectionSession.ChannelListChangeListener {
 
     private static Handler sHandler = new Handler(Looper.getMainLooper());
 
-    private final ServerConnectionInfo mConnection;
+    private final ServerConnectionSession mConnection;
     private final Map<String, List<Runnable>> mChannelRunnables = new HashMap<>();
     private boolean mRegisteredChannelListener = false;
 
-    public UserAutoRunCommandHelper(ServerConnectionInfo connection) {
+    public UserAutoRunCommandHelper(ServerConnectionSession connection) {
         mConnection = connection;
     }
 
@@ -128,7 +128,7 @@ public class UserAutoRunCommandHelper implements ServerConnectionInfo.ChannelLis
     }
 
     @Override
-    public void onChannelListChanged(ServerConnectionInfo connection, List<String> newChannels) {
+    public void onChannelListChanged(ServerConnectionSession connection, List<String> newChannels) {
         synchronized (mChannelRunnables) {
             for (String channel : newChannels) {
                 String lowercase = channel.toLowerCase();

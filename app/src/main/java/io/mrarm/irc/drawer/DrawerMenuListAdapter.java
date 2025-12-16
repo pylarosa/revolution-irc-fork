@@ -22,9 +22,9 @@ import java.util.TreeMap;
 
 import io.mrarm.irc.ChannelNotificationManager;
 import io.mrarm.irc.R;
-import io.mrarm.irc.ServerConnectionInfo;
-import io.mrarm.irc.ServerConnectionManager;
 import io.mrarm.irc.config.AppSettings;
+import io.mrarm.irc.connection.ServerConnectionManager;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.util.ExpandIconStateHelper;
 import io.mrarm.irc.util.StyledAttributesHelper;
 import io.mrarm.irc.view.LockableDrawerLayout;
@@ -39,13 +39,13 @@ public class DrawerMenuListAdapter extends RecyclerView.Adapter<RecyclerView.Vie
 
     private Context mContext;
     private LockableDrawerLayout mDrawerLayout;
-    private List<ServerConnectionInfo> mServers;
+    private List<ServerConnectionSession> mServers;
     private ArrayList<DrawerMenuItem> mMenuItems = new ArrayList<>();
     private ArrayList<DrawerMenuItem> mTopMenuItems = new ArrayList<>();
-    private TreeMap<Integer, ServerConnectionInfo> mItemIndexToServerMap = new TreeMap<>();
+    private TreeMap<Integer, ServerConnectionSession> mItemIndexToServerMap = new TreeMap<>();
     private int mCurrentItemCount;
     private ChannelClickListener mChannelClickListener;
-    private ServerConnectionInfo mSelectedItemServer;
+    private ServerConnectionSession mSelectedItemServer;
     private String mSelectedItemChannel;
     private WeakReference<DrawerMenuItem> mSelectedMenuItem;
     private Drawable mChannelBackground;
@@ -111,7 +111,7 @@ public class DrawerMenuListAdapter extends RecyclerView.Adapter<RecyclerView.Vie
             return -1;
         int currentIndex = getServerListStart();
         int serverIndex = -1;
-        for (ServerConnectionInfo info : mServers) {
+        for (ServerConnectionSession info : mServers) {
             if (info == mSelectedItemServer) {
                 serverIndex = currentIndex;
                 break;
@@ -128,17 +128,17 @@ public class DrawerMenuListAdapter extends RecyclerView.Adapter<RecyclerView.Vie
                 mSelectedItemServer.getChannels().indexOf(mSelectedItemChannel);
     }
 
-    private boolean shouldShowServerItem(ServerConnectionInfo info) {
+    private boolean shouldShowServerItem(ServerConnectionSession info) {
         return info.getChannels() == null || info.getChannels().size() == 0 || mAlwaysShowServer;
     }
 
-    public void setSelectedChannel(ServerConnectionInfo server, String channel) {
+    public void setSelectedChannel(ServerConnectionSession server, String channel) {
         if (mSelectedMenuItem != null)
             setSelectedMenuItem(null);
         int currentIndex = getServerListStart();
         int oldServerIndex = -1;
         int newServerIndex = -1;
-        for (ServerConnectionInfo info : mServers) {
+        for (ServerConnectionSession info : mServers) {
             if (info == server)
                 newServerIndex = currentIndex;
             if (info == mSelectedItemServer)
@@ -186,7 +186,7 @@ public class DrawerMenuListAdapter extends RecyclerView.Adapter<RecyclerView.Vie
     private void updateItemIndexToServerMap() {
         int currentIndex = 0;
         mItemIndexToServerMap.clear();
-        for (ServerConnectionInfo info : mServers) {
+        for (ServerConnectionSession info : mServers) {
             mItemIndexToServerMap.put(currentIndex, info);
             if (info.isExpandedInDrawer()) {
                 if (shouldShowServerItem(info))
@@ -205,20 +205,20 @@ public class DrawerMenuListAdapter extends RecyclerView.Adapter<RecyclerView.Vie
         notifyDataSetChanged();
     }
 
-    public void notifyServerInfoChanged(ServerConnectionInfo changedInfo) {
-        for (Map.Entry<Integer, ServerConnectionInfo> p : mItemIndexToServerMap.entrySet()) {
+    public void notifyServerInfoChanged(ServerConnectionSession changedInfo) {
+        for (Map.Entry<Integer, ServerConnectionSession> p : mItemIndexToServerMap.entrySet()) {
             if (p.getValue() == changedInfo)
                 notifyItemChanged(getServerListStart() + p.getKey());
         }
     }
 
-    public void notifyChannelUnreadCountChanged(ServerConnectionInfo connection, String channel) {
+    public void notifyChannelUnreadCountChanged(ServerConnectionSession connection, String channel) {
         int channelIndex = connection.getChannels().indexOf(channel);
         if (channelIndex == -1)
             return;
         if (shouldShowServerItem(connection))
             channelIndex++;
-        for (Map.Entry<Integer, ServerConnectionInfo> p : mItemIndexToServerMap.entrySet()) {
+        for (Map.Entry<Integer, ServerConnectionSession> p : mItemIndexToServerMap.entrySet()) {
             if (p.getValue() == connection) {
                 notifyItemChanged(getServerListStart() + p.getKey() + 1 + channelIndex);
             }
@@ -269,7 +269,7 @@ public class DrawerMenuListAdapter extends RecyclerView.Adapter<RecyclerView.Vie
     public void onBindViewHolder(RecyclerView.ViewHolder holder, int position) {
         int viewType = holder.getItemViewType();
         if (viewType == TYPE_SERVER_HEADER || viewType == TYPE_CHANNEL) {
-            Map.Entry<Integer, ServerConnectionInfo> entry =
+            Map.Entry<Integer, ServerConnectionSession> entry =
                     mItemIndexToServerMap.floorEntry(position - getServerListStart());
             if (viewType == TYPE_SERVER_HEADER)
                 ((ServerHeaderHolder) holder).bind(entry.getValue());
@@ -309,7 +309,7 @@ public class DrawerMenuListAdapter extends RecyclerView.Adapter<RecyclerView.Vie
         if (position < getServerListStart() || position >= getBottomMenuItemsStart())
             return TYPE_MENU_ITEM;
         position -= getServerListStart();
-        Map.Entry<Integer, ServerConnectionInfo> entry = mItemIndexToServerMap.floorEntry(position);
+        Map.Entry<Integer, ServerConnectionSession> entry = mItemIndexToServerMap.floorEntry(position);
         if (entry == null || entry.getKey() == position)
             return TYPE_SERVER_HEADER;
         int cnt = 0;
@@ -359,7 +359,7 @@ public class DrawerMenuListAdapter extends RecyclerView.Adapter<RecyclerView.Vie
 
     public class ServerHeaderHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
 
-        private ServerConnectionInfo mServerInfo;
+        private ServerConnectionSession mServerInfo;
         private TextView mServerName;
         private ImageView mExpandIcon;
 
@@ -370,7 +370,7 @@ public class DrawerMenuListAdapter extends RecyclerView.Adapter<RecyclerView.Vie
             v.findViewById(R.id.server_entry).setOnClickListener(this);
         }
 
-        public void bind(ServerConnectionInfo info) {
+        public void bind(ServerConnectionSession info) {
             mServerInfo = info;
             mServerName.setText(info.getName());
             mExpandIcon.setRotation(mServerInfo.isExpandedInDrawer() ? 180.f : 0.f);
@@ -380,7 +380,7 @@ public class DrawerMenuListAdapter extends RecyclerView.Adapter<RecyclerView.Vie
         public void onClick(View v) {
             mServerInfo.setExpandedInDrawer(!mServerInfo.isExpandedInDrawer());
             updateItemIndexToServerMap();
-            for (Map.Entry<Integer, ServerConnectionInfo> entry :
+            for (Map.Entry<Integer, ServerConnectionSession> entry :
                     mItemIndexToServerMap.entrySet()) {
                 if (entry.getValue() == mServerInfo && mServerInfo.getChannels() != null) {
                     int channelCount = mServerInfo.getChannels().size();
@@ -407,7 +407,7 @@ public class DrawerMenuListAdapter extends RecyclerView.Adapter<RecyclerView.Vie
         private View mView;
         private TextView mName;
         private TextView mUnreadCounter;
-        ServerConnectionInfo mConnection;
+        ServerConnectionSession mConnection;
         String mChannel;
 
         public ChannelHolder(DrawerMenuListAdapter adapter, View v) {
@@ -423,7 +423,7 @@ public class DrawerMenuListAdapter extends RecyclerView.Adapter<RecyclerView.Vie
             }
         }
 
-        public void bind(ServerConnectionInfo info, int channelIndex) {
+        public void bind(ServerConnectionSession info, int channelIndex) {
             mConnection = info;
             if (shouldShowServerItem(info))
                 --channelIndex;
@@ -512,7 +512,7 @@ public class DrawerMenuListAdapter extends RecyclerView.Adapter<RecyclerView.Vie
 
     public interface ChannelClickListener {
 
-        void openChannel(ServerConnectionInfo server, String channel);
+        void openChannel(ServerConnectionSession server, String channel);
 
     }
 

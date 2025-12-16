@@ -2,6 +2,7 @@ package io.mrarm.irc.chat;
 
 import android.content.Context;
 import android.os.Bundle;
+
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentPagerAdapter;
@@ -12,24 +13,24 @@ import java.util.List;
 import java.util.Map;
 
 import io.mrarm.irc.R;
-import io.mrarm.irc.ServerConnectionInfo;
+import io.mrarm.irc.connection.ServerConnectionSession;
 
 public class ChatPagerAdapter extends FragmentPagerAdapter {
 
     private Context context;
-    private ServerConnectionInfo connectionInfo;
+    private ServerConnectionSession connectionInfo;
     private List<String> channels;
     private Map<String, Long> channelIds = new HashMap<>();
     private long nextChannelId = 1;
 
-    public ChatPagerAdapter(Context context, FragmentManager fm, ServerConnectionInfo connectionInfo) {
+    public ChatPagerAdapter(Context context, FragmentManager fm, ServerConnectionSession connectionInfo) {
         super(fm);
         this.context = context;
         this.connectionInfo = connectionInfo;
         updateChannelList();
     }
 
-    public ChatPagerAdapter(Context context, FragmentManager fm, ServerConnectionInfo connectionInfo, Bundle bundle) {
+    public ChatPagerAdapter(Context context, FragmentManager fm, ServerConnectionSession connectionInfo, Bundle bundle) {
         super(fm);
         this.context = context;
         this.connectionInfo = connectionInfo;

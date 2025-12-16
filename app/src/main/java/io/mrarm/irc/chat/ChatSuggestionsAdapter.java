@@ -12,15 +12,15 @@ import java.util.ArrayList;
 import java.util.List;
 
 import io.mrarm.irc.R;
-import io.mrarm.irc.ServerConnectionInfo;
 import io.mrarm.irc.chatlib.dto.ModeList;
 import io.mrarm.irc.chatlib.dto.NickWithPrefix;
 import io.mrarm.irc.chatlib.irc.ServerConnectionApi;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.util.SelectableRecyclerViewAdapter;
 
 public class ChatSuggestionsAdapter extends SelectableRecyclerViewAdapter<ChatSuggestionsAdapter.ItemHolder> implements Filterable {
 
-    private ServerConnectionInfo mConnection;
+    private ServerConnectionSession mConnection;
     private List<NickWithPrefix> mMembers;
     private List<Object> mFilteredItems;
     private boolean mMembersEnabled = false;
@@ -29,7 +29,7 @@ public class ChatSuggestionsAdapter extends SelectableRecyclerViewAdapter<ChatSu
     private MyFilter mFilter;
     private OnItemClickListener mClickListener;
 
-    public ChatSuggestionsAdapter(Context context, ServerConnectionInfo connection, List<NickWithPrefix> members) {
+    public ChatSuggestionsAdapter(Context context, ServerConnectionSession connection, List<NickWithPrefix> members) {
         super(context);
         mConnection = connection;
         mMembers = members;

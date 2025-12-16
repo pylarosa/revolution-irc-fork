@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import io.mrarm.irc.config.SettingsHelper;
+import io.mrarm.irc.connection.ServerConnectionManager;
 
 /**
  * <b>IRCApplication</b>

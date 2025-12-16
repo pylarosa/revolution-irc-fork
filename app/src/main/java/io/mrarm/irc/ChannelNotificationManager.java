@@ -29,6 +29,8 @@ import io.mrarm.irc.chatlib.dto.MessageId;
 import io.mrarm.irc.chatlib.dto.MessageInfo;
 import io.mrarm.irc.config.NotificationRule;
 import io.mrarm.irc.config.NotificationRuleManager;
+import io.mrarm.irc.connection.ServerConnectionManager;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.infrastructure.threading.AppAsyncExecutor;
 import io.mrarm.irc.storage.ConversationStateRepository;
 import io.mrarm.irc.storage.db.ChatLogDatabase;
@@ -44,7 +46,7 @@ public class ChannelNotificationManager {
 
     private static int mNextChatNotificationId = CHAT_NOTIFICATION_ID_START;
 
-    private final ServerConnectionInfo mConnection;
+    private final ServerConnectionSession mConnection;
     private final String mChannel;
     private final int mNotificationId = mNextChatNotificationId++;
     private boolean mShowingNotification = false;
@@ -58,7 +60,7 @@ public class ChannelNotificationManager {
     private final ConversationStateRepository mConversationStateRepo;
 
 
-    public ChannelNotificationManager(ServerConnectionInfo connection, String channel) {
+    public ChannelNotificationManager(ServerConnectionSession connection, String channel) {
         mConnection = connection;
         mChannel = channel;
 
@@ -94,7 +96,7 @@ public class ChannelNotificationManager {
         });
     }
 
-    public ServerConnectionInfo getConnection() {
+    public ServerConnectionSession getConnection() {
         return mConnection;
     }
 
@@ -476,7 +478,7 @@ public class ChannelNotificationManager {
 
         public static final String KEY_REPLY_TEXT = "reply_text";
 
-        public static Intent getDismissIntent(Context context, ServerConnectionInfo server,
+        public static Intent getDismissIntent(Context context, ServerConnectionSession server,
                                               String channel) {
             Intent ret = new Intent(context, NotificationActionReceiver.class);
             ret.putExtra(ARG_ACTION, ACTION_DISMISS);
@@ -492,7 +494,7 @@ public class ChannelNotificationManager {
             return ret;
         }
 
-        public static Intent getReplyIntent(Context context, ServerConnectionInfo server,
+        public static Intent getReplyIntent(Context context, ServerConnectionSession server,
                                             String channel, int notificationId) {
             Intent ret = new Intent(context, NotificationActionReceiver.class);
             ret.putExtra(ARG_ACTION, ACTION_REPLY);
@@ -506,12 +508,12 @@ public class ChannelNotificationManager {
         public void onReceive(Context context, Intent intent) {
             if (intent.getBooleanExtra(ARG_SERVER_ALL, false)) {
                 ServerConnectionManager mgr = ServerConnectionManager.getInstance(context);
-                for (ServerConnectionInfo conn : mgr.getConnections())
+                for (ServerConnectionSession conn : mgr.getConnections())
                     NotificationManager.getInstance().clearAllNotifications(context, conn);
                 return;
             }
             UUID uuid = UUID.fromString(intent.getStringExtra(ARG_SERVER_UUID));
-            ServerConnectionInfo conn = ServerConnectionManager.getInstance(context).getConnection(uuid);
+            ServerConnectionSession conn = ServerConnectionManager.getInstance(context).getConnection(uuid);
             if (conn == null)
                 return;
             String channel = intent.getStringExtra(ARG_CHANNEL);
@@ -535,11 +537,11 @@ public class ChannelNotificationManager {
     private static class NotificationSendMessageCallback implements SendMessageHelper.Callback {
 
         private Context mContext;
-        private ServerConnectionInfo mConnection;
+        private ServerConnectionSession mConnection;
         private String mChannel;
         private int mNotificationId;
 
-        public NotificationSendMessageCallback(Context context, ServerConnectionInfo conn,
+        public NotificationSendMessageCallback(Context context, ServerConnectionSession conn,
                                                String channel, int notifId) {
             mContext = context;
             mConnection = conn;

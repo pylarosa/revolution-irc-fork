@@ -1,6 +1,7 @@
 package io.mrarm.irc.dialog;
 
 import android.content.Context;
+
 import androidx.annotation.NonNull;
 
 import java.util.ArrayList;
@@ -8,15 +9,15 @@ import java.util.List;
 
 import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.R;
-import io.mrarm.irc.ServerConnectionInfo;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.view.ListSearchView;
 
 public class UserSearchDialog extends SearchDialog {
 
-    private ServerConnectionInfo mConnection;
+    private ServerConnectionSession mConnection;
     private ListSearchView.SimpleSuggestionsAdapter mAdapter;
 
-    public UserSearchDialog(@NonNull Context context, ServerConnectionInfo connection) {
+    public UserSearchDialog(@NonNull Context context, ServerConnectionSession connection) {
         super(context);
         mConnection = connection;
         setQueryHint(context.getString(R.string.action_message_user));

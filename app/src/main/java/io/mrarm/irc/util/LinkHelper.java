@@ -17,8 +17,8 @@ import java.util.regex.Pattern;
 
 import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.R;
-import io.mrarm.irc.ServerConnectionInfo;
 import io.mrarm.irc.chat.ChatFragment;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.dialog.MenuBottomSheetDialog;
 
 public class LinkHelper {
@@ -66,7 +66,7 @@ public class LinkHelper {
                 ChatFragment fragment = (ChatFragment) activity.getCurrentFragment();
                 List<String> channels = new ArrayList<>();
                 channels.add(mChannel);
-                ServerConnectionInfo connection = fragment.getConnectionInfo();
+                ServerConnectionSession connection = fragment.getConnectionInfo();
                 if (connection.hasChannel(mChannel)) {
                     activity.openServer(connection, mChannel);
                     return true;

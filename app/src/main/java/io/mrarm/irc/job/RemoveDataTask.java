@@ -17,11 +17,11 @@ import java.io.File;
 import java.util.UUID;
 
 import io.mrarm.irc.R;
-import io.mrarm.irc.ServerConnectionManager;
 import io.mrarm.irc.config.CommandAliasManager;
 import io.mrarm.irc.config.NotificationRuleManager;
 import io.mrarm.irc.config.ServerConfigManager;
 import io.mrarm.irc.config.SettingsHelper;
+import io.mrarm.irc.connection.ServerConnectionManager;
 import io.mrarm.irc.connection.ServerConnectionRegistry;
 import io.mrarm.irc.infrastructure.threading.AppAsyncExecutor;
 import io.mrarm.irc.storage.MessageStorageRepository;

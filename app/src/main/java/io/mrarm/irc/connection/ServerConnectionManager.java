@@ -1,4 +1,4 @@
-package io.mrarm.irc;
+package io.mrarm.irc.connection;
 
 import android.content.Context;
 import android.net.ConnectivityManager;
@@ -12,10 +12,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
+import io.mrarm.irc.IRCService;
+import io.mrarm.irc.NotificationManager;
+import io.mrarm.irc.R;
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
-import io.mrarm.irc.connection.ServerConnectionFactory;
-import io.mrarm.irc.connection.ServerConnectionRegistry;
 import io.mrarm.irc.infrastructure.threading.DelayScheduler;
 import io.mrarm.irc.infrastructure.threading.ManagedCoroutineScope;
 import io.mrarm.irc.infrastructure.threading.SchedulerProvider;
@@ -26,24 +27,52 @@ import kotlinx.coroutines.BuildersKt;
 import kotlinx.coroutines.CoroutineScope;
 import kotlinx.coroutines.CoroutineStart;
 
-// TODO(architecture):
-// ServerConnectionManager currently acts as:
-// - connection registry
-// - connection factory
-// - reconnect policy holder
-// - service lifecycle coordinator
-// These responsibilities should be separated gradually.
+/**
+ * ServerConnectionManager
+ *
+ * Application-level orchestrator for server connections.
+ *
+ * <p>This class manages the lifecycle of {@link ServerConnectionSession} instances
+ * from the perspective of the application, NOT the IRC protocol.</p>
+ *
+ * <h3>Responsibilities</h3>
+ * <ul>
+ *   <li>Maintain the collection of active server connections</li>
+ *   <li>Create and remove connections via {@link ServerConnectionFactory}</li>
+ *   <li>Restore managed connections on app startup using
+ *       {@link io.mrarm.irc.connection.ServerConnectionRegistry}</li>
+ *   <li>Coordinate global side effects (foreground service start/stop)</li>
+ *   <li>Broadcast application-wide connection and channel change events</li>
+ *   <li>Handle bulk operations (disconnect all, destroy on app exit)</li>
+ * </ul>
+ *
+ * <h3>Non-responsibilities</h3>
+ * <ul>
+ *   <li>Does NOT manage IRC protocol details</li>
+ *   <li>Does NOT execute connection or reconnect logic</li>
+ *   <li>Does NOT schedule reconnect timers</li>
+ *   <li>Does NOT own per-connection state</li>
+ * </ul>
+ *
+ * <p>Each {@link ServerConnectionSession} instance is responsible for managing
+ * its own connection lifecycle (connect, disconnect, reconnect) and runtime state.</p>
+ *
+ * <p>In short: this class orchestrates <b>which</b> connections exist and
+ * <b>when</b> the application should react, while individual connections
+ * decide <b>how</b> to behave.</p>
+ */
+
 public class ServerConnectionManager {
 
     private static ServerConnectionManager instance;
 
     private final Context mContext;
-    private final HashMap<UUID, ServerConnectionInfo> mConnectionsMap = new HashMap<>();
-    private final ArrayList<ServerConnectionInfo> mConnections = new ArrayList<>();
-    private final HashMap<UUID, ServerConnectionInfo> mDisconnectingConnections = new HashMap<>();
+    private final HashMap<UUID, ServerConnectionSession> mConnectionsMap = new HashMap<>();
+    private final ArrayList<ServerConnectionSession> mConnections = new ArrayList<>();
+    private final HashMap<UUID, ServerConnectionSession> mDisconnectingConnections = new HashMap<>();
     private final List<ConnectionsListener> mListeners = new ArrayList<>();
-    private final List<ServerConnectionInfo.ChannelListChangeListener> mChannelsListeners = new ArrayList<>();
-    private final List<ServerConnectionInfo.InfoChangeListener> mInfoListeners = new ArrayList<>();
+    private final List<ServerConnectionSession.ChannelListChangeListener> mChannelsListeners = new ArrayList<>();
+    private final List<ServerConnectionSession.InfoChangeListener> mInfoListeners = new ArrayList<>();
     private boolean mDestroying = false;
     private final ManagedCoroutineScope mIoScopeWrapper;
     private final CoroutineScope mIoScope;
@@ -66,7 +95,7 @@ public class ServerConnectionManager {
             return;
         instance.mDestroying = true;
         while (!instance.mConnections.isEmpty()) {
-            ServerConnectionInfo connection = instance.mConnections.get(instance.mConnections.size() - 1);
+            ServerConnectionSession connection = instance.mConnections.get(instance.mConnections.size() - 1);
             connection.disconnect();
             instance.removeConnection(connection, false);
             instance.killDisconnectingConnection(connection.getUUID());
@@ -112,7 +141,7 @@ public class ServerConnectionManager {
 
     private void saveRegistry() {
         List<ServerConnectionRegistry.ConnectedServerEntry> entries = new ArrayList<>();
-        for (ServerConnectionInfo connection : getConnections()) {
+        for (ServerConnectionSession connection : getConnections()) {
             ServerConnectionRegistry.ConnectedServerEntry e = new ServerConnectionRegistry.ConnectedServerEntry();
             e.uuid = connection.getUUID();
             e.channels = connection.getChannels();
@@ -125,13 +154,13 @@ public class ServerConnectionManager {
         return mContext;
     }
 
-    public List<ServerConnectionInfo> getConnections() {
+    public List<ServerConnectionSession> getConnections() {
         synchronized (this) {
             return new ArrayList<>(mConnections);
         }
     }
 
-    public void addConnection(ServerConnectionInfo connection, boolean saveAutoconnect) {
+    public void addConnection(ServerConnectionSession connection, boolean saveAutoconnect) {
         synchronized (this) {
             if (mConnectionsMap.containsKey(connection.getUUID()))
                 throw new RuntimeException("A connection with this UUID already exists");
@@ -147,23 +176,23 @@ public class ServerConnectionManager {
         IRCService.start(mContext);
     }
 
-    public void addConnection(ServerConnectionInfo connection) {
+    public void addConnection(ServerConnectionSession connection) {
         addConnection(connection, true);
     }
 
-    private ServerConnectionInfo createConnection(ServerConfigData data,
-                                                  List<String> joinChannels,
-                                                  boolean saveAutoconnect) {
+    private ServerConnectionSession createConnection(ServerConfigData data,
+                                                     List<String> joinChannels,
+                                                     boolean saveAutoconnect) {
         killDisconnectingConnection(data.uuid);
 
-        ServerConnectionInfo connectionInfo = connectionFactory.create(this, data, joinChannels);
+        ServerConnectionSession connectionInfo = connectionFactory.create(this, data, joinChannels);
 
         connectionInfo.connect();
         addConnection(connectionInfo, saveAutoconnect);
         return connectionInfo;
     }
 
-    public ServerConnectionInfo createConnection(ServerConfigData data) {
+    public ServerConnectionSession createConnection(ServerConfigData data) {
         return createConnection(data, null, true);
     }
 
@@ -177,7 +206,7 @@ public class ServerConnectionManager {
         }
     }
 
-    public void removeConnection(ServerConnectionInfo connection, boolean saveAutoconnect) {
+    public void removeConnection(ServerConnectionSession connection, boolean saveAutoconnect) {
         NotificationManager.getInstance().clearAllNotifications(mContext, connection);
         synchronized (this) {
             synchronized (connection) {
@@ -208,7 +237,7 @@ public class ServerConnectionManager {
         }
     }
 
-    public void removeConnection(ServerConnectionInfo connection) {
+    public void removeConnection(ServerConnectionSession connection) {
         removeConnection(connection, true);
     }
 
@@ -218,7 +247,7 @@ public class ServerConnectionManager {
      */
     public void killDisconnectingConnection(UUID uuid) {
         synchronized (mDisconnectingConnections) {
-            ServerConnectionInfo connection = mDisconnectingConnections.get(uuid);
+            ServerConnectionSession connection = mDisconnectingConnections.get(uuid);
             if (connection == null)
                 return;
             connection.close();
@@ -229,7 +258,7 @@ public class ServerConnectionManager {
     public void disconnectAndRemoveAllConnections(boolean kill) {
         synchronized (this) {
             while (!mConnections.isEmpty()) {
-                ServerConnectionInfo connection = mConnections.get(mConnections.size() - 1);
+                ServerConnectionSession connection = mConnections.get(mConnections.size() - 1);
                 connection.disconnect();
                 removeConnection(connection, false);
                 if (kill)
@@ -239,7 +268,7 @@ public class ServerConnectionManager {
         }
     }
 
-    public ServerConnectionInfo getConnection(UUID uuid) {
+    public ServerConnectionSession getConnection(UUID uuid) {
         synchronized (this) {
             return mConnectionsMap.get(uuid);
         }
@@ -264,52 +293,52 @@ public class ServerConnectionManager {
         }
     }
 
-    public void addGlobalConnectionInfoListener(ServerConnectionInfo.InfoChangeListener listener) {
+    public void addGlobalConnectionInfoListener(ServerConnectionSession.InfoChangeListener listener) {
         synchronized (mInfoListeners) {
             mInfoListeners.add(listener);
         }
     }
 
-    public void removeGlobalConnectionInfoListener(ServerConnectionInfo.InfoChangeListener listener) {
+    public void removeGlobalConnectionInfoListener(ServerConnectionSession.InfoChangeListener listener) {
         synchronized (mInfoListeners) {
             mInfoListeners.remove(listener);
         }
     }
 
-    public void addGlobalChannelListListener(ServerConnectionInfo.ChannelListChangeListener listener) {
+    public void addGlobalChannelListListener(ServerConnectionSession.ChannelListChangeListener listener) {
         synchronized (mChannelsListeners) {
             mChannelsListeners.add(listener);
         }
     }
 
-    public void removeGlobalChannelListListener(ServerConnectionInfo.ChannelListChangeListener listener) {
+    public void removeGlobalChannelListListener(ServerConnectionSession.ChannelListChangeListener listener) {
         synchronized (mChannelsListeners) {
             mChannelsListeners.remove(listener);
         }
     }
 
-    void notifyConnectionInfoChanged(ServerConnectionInfo connection) {
+    void notifyConnectionInfoChanged(ServerConnectionSession connection) {
         if (!hasConnection(connection.getUUID()))
             return;
         synchronized (mInfoListeners) {
-            for (ServerConnectionInfo.InfoChangeListener listener : mInfoListeners)
+            for (ServerConnectionSession.InfoChangeListener listener : mInfoListeners)
                 listener.onConnectionInfoChanged(connection);
             if (!mDestroying)
                 IRCService.start(mContext);
         }
     }
 
-    void notifyChannelListChanged(ServerConnectionInfo connection, List<String> newChannels) {
+    void notifyChannelListChanged(ServerConnectionSession connection, List<String> newChannels) {
         if (!hasConnection(connection.getUUID()))
             return;
         synchronized (mChannelsListeners) {
-            for (ServerConnectionInfo.ChannelListChangeListener listener : mChannelsListeners)
+            for (ServerConnectionSession.ChannelListChangeListener listener : mChannelsListeners)
                 listener.onChannelListChanged(connection, newChannels);
         }
     }
 
-    void notifyConnectionFullyDisconnected(ServerConnectionInfo connection) {
-        ServerConnectionInfo removed;
+    void notifyConnectionFullyDisconnected(ServerConnectionSession connection) {
+        ServerConnectionSession removed;
         synchronized (mDisconnectingConnections) {
             removed = mDisconnectingConnections.remove(connection.getUUID());
         }
@@ -320,7 +349,7 @@ public class ServerConnectionManager {
     public void notifyConnectivityChanged(boolean hasAnyConnectivity) {
         boolean hasWifi = isWifiConnected(mContext);
         synchronized (this) {
-            for (ServerConnectionInfo server : mConnectionsMap.values())
+            for (ServerConnectionSession server : mConnectionsMap.values())
                 server.notifyConnectivityChanged(hasAnyConnectivity, hasWifi);
         }
     }
@@ -339,9 +368,9 @@ public class ServerConnectionManager {
 
     public interface ConnectionsListener {
 
-        void onConnectionAdded(ServerConnectionInfo connection);
+        void onConnectionAdded(ServerConnectionSession connection);
 
-        void onConnectionRemoved(ServerConnectionInfo connection);
+        void onConnectionRemoved(ServerConnectionSession connection);
 
     }
 

@@ -30,8 +30,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-import io.mrarm.irc.ServerConnectionInfo;
-import io.mrarm.irc.ServerConnectionManager;
+import io.mrarm.irc.connection.ServerConnectionManager;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.setting.ListWithCustomSetting;
 import io.mrarm.irc.storage.db.ChatLogDatabase;
 import io.mrarm.irc.util.theme.ThemeInfo;
@@ -383,7 +383,7 @@ public class BackupManager {
                 scm.disconnectAndRemoveAllConnections(true);
             } else {
                 // Non-destructive shutdown (backup)
-                for (ServerConnectionInfo conn : scm.getConnections()) {
+                for (ServerConnectionSession conn : scm.getConnections()) {
                     conn.disconnect();
                 }
             }

@@ -6,15 +6,15 @@ import android.text.Spannable;
 import java.util.ArrayList;
 
 import io.mrarm.irc.R;
-import io.mrarm.irc.ServerConnectionInfo;
 import io.mrarm.irc.chatlib.irc.IRCConnection;
 import io.mrarm.irc.config.CommandAliasManager;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.util.IRCColorUtils;
 import io.mrarm.irc.util.SimpleTextVariableList;
 
 public class SendMessageHelper {
 
-    public static void sendMessage(Context context, ServerConnectionInfo connection,
+    public static void sendMessage(Context context, ServerConnectionSession connection,
                                    String channel, Spannable message, Callback cb) {
         String text = IRCColorUtils.convertSpannableToIRCString(context, message);
         if (text.length() == 0 || (!connection.isConnected() && !connection.isConnecting()))

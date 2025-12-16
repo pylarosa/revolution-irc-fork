@@ -32,6 +32,8 @@ import java.util.List;
 import java.util.UUID;
 
 import io.mrarm.irc.chatlib.dto.ChannelList;
+import io.mrarm.irc.connection.ServerConnectionManager;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.infrastructure.threading.AppAsyncExecutor;
 import io.mrarm.irc.view.ProgressBar;
 import io.mrarm.irc.view.RecyclerViewScrollbar;
@@ -44,7 +46,7 @@ public class ChannelListActivity extends ThemedActivity {
     public static final int SORT_NAME = 1;
     public static final int SORT_MEMBER_COUNT = 2;
 
-    private ServerConnectionInfo mConnection;
+    private ServerConnectionSession mConnection;
     private View mMainAppBar;
     private View mSearchAppBar;
     private SearchView mSearchView;

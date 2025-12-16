@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Pair;
 
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.dialog.ChannelSearchDialog;
 import io.mrarm.irc.util.StyledAttributesHelper;
 import io.mrarm.irc.view.ListSearchView;
@@ -22,7 +23,7 @@ public class ShareTargetActivity extends ThemedActivity implements ListSearchVie
         view.setSuggestionsAdapter(mAdapter);
         setContentView(view);
 
-        mAdapter.setItemClickListener((int index, Pair<ServerConnectionInfo, String> value) -> {
+        mAdapter.setItemClickListener((int index, Pair<ServerConnectionSession, String> value) -> {
             Intent intent = new Intent(this, MainActivity.class);
             intent.putExtra(MainActivity.ARG_SERVER_UUID, value.first.getUUID().toString());
             intent.putExtra(MainActivity.ARG_CHANNEL_NAME, value.second);

@@ -18,7 +18,6 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.mrarm.irc.ServerConnectionInfo;
 import io.mrarm.irc.chat.ChatSuggestionsAdapter;
 import io.mrarm.irc.chat.CommandListSuggestionsAdapter;
 import io.mrarm.irc.chatlib.dto.ModeList;
@@ -30,6 +29,7 @@ import io.mrarm.irc.config.CommandAliasManager;
 import io.mrarm.irc.config.NickAutocompleteSettings;
 import io.mrarm.irc.config.SettingsHelper;
 import io.mrarm.irc.config.UiSettingChangeCallback;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.util.CommandAliasSyntaxParser;
 import io.mrarm.irc.util.SelectableRecyclerViewAdapter;
 import io.mrarm.irc.util.SimpleTextWatcher;
@@ -48,7 +48,7 @@ public class ChatAutoCompleteEditText extends FormattableEditText implements
     private View mSuggestionsContainer;
     private View mSuggestionsCard;
     private RecyclerView mSuggestionsList;
-    private ServerConnectionInfo mConnection;
+    private ServerConnectionSession mConnection;
     private ChatSuggestionsAdapter mAdapter;
     private CommandListSuggestionsAdapter mCommandAdapter;
     private ModeList mChannelTypes;
@@ -106,7 +106,7 @@ public class ChatAutoCompleteEditText extends FormattableEditText implements
         mCommandAdapter.setClickListener(this);
     }
 
-    public void setConnectionContext(ServerConnectionInfo info) {
+    public void setConnectionContext(ServerConnectionSession info) {
         mConnection = info;
     }
 

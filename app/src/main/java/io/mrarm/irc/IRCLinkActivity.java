@@ -20,6 +20,8 @@ import java.util.UUID;
 import io.mrarm.irc.chatlib.ChatApi;
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
+import io.mrarm.irc.connection.ServerConnectionManager;
+import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.util.AdvancedDividerItemDecoration;
 
 public class IRCLinkActivity extends ThemedActivity {
@@ -28,7 +30,7 @@ public class IRCLinkActivity extends ThemedActivity {
 
     private String mHostName;
     private String mChannelName;
-    private ServerConnectionInfo mSelectedConnection;
+    private ServerConnectionSession mSelectedConnection;
     private OpenTaskChannelListListener mOpenTask;
 
     @Override
@@ -118,7 +120,7 @@ public class IRCLinkActivity extends ThemedActivity {
         ServerConnectionManager mgr = ServerConnectionManager.getInstance(this);
         if (!mgr.hasConnection(server.uuid))
             mgr.tryCreateConnection(server, this);
-        ServerConnectionInfo connection = mgr.getConnection(server.uuid);
+        ServerConnectionSession connection = mgr.getConnection(server.uuid);
         if (connection == null)
             return;
         mSelectedConnection = connection;
@@ -143,7 +145,7 @@ public class IRCLinkActivity extends ThemedActivity {
     }
 
     private class OpenTaskChannelListListener
-            implements ServerConnectionInfo.ChannelListChangeListener {
+            implements ServerConnectionSession.ChannelListChangeListener {
 
         private String mChannel;
 
@@ -152,7 +154,7 @@ public class IRCLinkActivity extends ThemedActivity {
         }
 
         @Override
-        public void onChannelListChanged(ServerConnectionInfo connection, List<String> newChannels) {
+        public void onChannelListChanged(ServerConnectionSession connection, List<String> newChannels) {
             if (newChannels.contains(mChannel)) {
                 startActivity(MainActivity.getLaunchIntent(IRCLinkActivity.this,
                         connection, mChannel));

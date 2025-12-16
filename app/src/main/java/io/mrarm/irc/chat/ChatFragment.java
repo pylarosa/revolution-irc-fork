@@ -26,18 +26,18 @@ import io.mrarm.irc.ChannelNotificationManager;
 import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.NotificationManager;
 import io.mrarm.irc.R;
-import io.mrarm.irc.ServerConnectionInfo;
-import io.mrarm.irc.ServerConnectionManager;
 import io.mrarm.irc.chatlib.dto.NickWithPrefix;
 import io.mrarm.irc.config.ChatSettings;
 import io.mrarm.irc.config.NickAutocompleteSettings;
 import io.mrarm.irc.config.SettingsHelper;
 import io.mrarm.irc.config.UiSettingChangeCallback;
+import io.mrarm.irc.connection.ServerConnectionManager;
+import io.mrarm.irc.connection.ServerConnectionSession;
 
 @Keep
 public class ChatFragment extends Fragment implements
-        ServerConnectionInfo.ChannelListChangeListener,
-        ServerConnectionInfo.InfoChangeListener,
+        ServerConnectionSession.ChannelListChangeListener,
+        ServerConnectionSession.InfoChangeListener,
         NotificationManager.UnreadMessageCountCallback {
 
     public static final String ARG_SERVER_UUID = "server_uuid";
@@ -45,7 +45,7 @@ public class ChatFragment extends Fragment implements
     public static final String ARG_MESSAGE_ID = "message_id";
     public static final String ARG_SEND_MESSAGE_TEXT = "message_text";
 
-    private ServerConnectionInfo mConnectionInfo;
+    private ServerConnectionSession mConnectionInfo;
 
     private AppBarLayout mAppBar;
     private TabLayout mTabLayout;
@@ -56,7 +56,7 @@ public class ChatFragment extends Fragment implements
     private OneTimeMessageJump mMessageJump;
     private String mAutoOpenChannel;
 
-    public static ChatFragment newInstance(ServerConnectionInfo server, String channel, String messageId) {
+    public static ChatFragment newInstance(ServerConnectionSession server, String channel, String messageId) {
         ChatFragment fragment = new ChatFragment();
         Bundle args = new Bundle();
         args.putString(ARG_SERVER_UUID, server.getUUID().toString());
@@ -263,7 +263,7 @@ public class ChatFragment extends Fragment implements
             mSectionsPagerAdapter.onSaveInstanceState(outState);
     }
 
-    public ServerConnectionInfo getConnectionInfo() {
+    public ServerConnectionSession getConnectionInfo() {
         return mConnectionInfo;
     }
 
@@ -328,14 +328,14 @@ public class ChatFragment extends Fragment implements
     }
 
     @Override
-    public void onConnectionInfoChanged(ServerConnectionInfo connection) {
+    public void onConnectionInfoChanged(ServerConnectionSession connection) {
         getActivity().runOnUiThread(() -> {
             mSendHelper.updateVisibility();
         });
     }
 
     @Override
-    public void onChannelListChanged(ServerConnectionInfo connection, List<String> newChannels) {
+    public void onChannelListChanged(ServerConnectionSession connection, List<String> newChannels) {
         getActivity().runOnUiThread(() -> {
             mSectionsPagerAdapter.updateChannelList();
             checkForAutoOpenChannel();
@@ -343,7 +343,7 @@ public class ChatFragment extends Fragment implements
     }
 
     @Override
-    public void onUnreadMessageCountChanged(ServerConnectionInfo info, String channel,
+    public void onUnreadMessageCountChanged(ServerConnectionSession info, String channel,
                                             int messageCount, int oldMessageCount) {
         if (messageCount == 0 || (messageCount > 0 && oldMessageCount == 0)) {
             getActivity().runOnUiThread(() -> {

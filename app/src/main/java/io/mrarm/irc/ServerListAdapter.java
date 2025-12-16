@@ -2,23 +2,26 @@ package io.mrarm.irc;
 
 import android.app.Activity;
 import android.graphics.drawable.Drawable;
-import androidx.core.graphics.drawable.DrawableCompat;
-import androidx.recyclerview.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.core.graphics.drawable.DrawableCompat;
+import androidx.recyclerview.widget.RecyclerView;
+
 import java.util.ArrayList;
 import java.util.List;
 
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
+import io.mrarm.irc.connection.ServerConnectionManager;
+import io.mrarm.irc.connection.ServerConnectionSession;
 
 public class ServerListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
         implements ServerConnectionManager.ConnectionsListener,
-        ServerConnectionInfo.InfoChangeListener, ServerConnectionInfo.ChannelListChangeListener,
+        ServerConnectionSession.InfoChangeListener, ServerConnectionSession.ChannelListChangeListener,
         ServerConfigManager.ConnectionsListener {
 
     private static final int TYPE_HEADER = 0;
@@ -76,7 +79,7 @@ public class ServerListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     }
 
     @Override
-    public void onConnectionAdded(ServerConnectionInfo connection) {
+    public void onConnectionAdded(ServerConnectionSession connection) {
         mContext.runOnUiThread(() -> {
             boolean hadHeader = (getActiveHeaderIndex() != -1);
             int oldInactiveIndex = -1;
@@ -100,7 +103,7 @@ public class ServerListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     }
 
     @Override
-    public void onConnectionRemoved(ServerConnectionInfo connection) {
+    public void onConnectionRemoved(ServerConnectionSession connection) {
         mContext.runOnUiThread(() -> {
             updateConnections();
             notifyDataSetChanged();
@@ -108,14 +111,14 @@ public class ServerListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     }
 
     @Override
-    public void onConnectionInfoChanged(ServerConnectionInfo connection) {
+    public void onConnectionInfoChanged(ServerConnectionSession connection) {
         mContext.runOnUiThread(() -> {
             notifyItemChanged(getActiveHeaderIndex() + 1 + ServerConnectionManager.getInstance(mContext).getConnections().indexOf(connection));
         });
     }
 
     @Override
-    public void onChannelListChanged(ServerConnectionInfo connection, List<String> newChannels) {
+    public void onChannelListChanged(ServerConnectionSession connection, List<String> newChannels) {
         mContext.runOnUiThread(() -> {
             notifyItemChanged(getActiveHeaderIndex() + 1 + ServerConnectionManager.getInstance(mContext).getConnections().indexOf(connection), DISABLE_ANIM);
         });
@@ -323,7 +326,7 @@ public class ServerListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
         private View mIconBg;
         private TextView mName;
         private TextView mDesc;
-        private ServerConnectionInfo mConnectionInfo;
+        private ServerConnectionSession mConnectionInfo;
 
         public ConnectedServerHolder(ServerListAdapter adapter, View v) {
             super(v);
@@ -346,7 +349,7 @@ public class ServerListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
             });
         }
 
-        public void bind(ServerListAdapter adapter, ServerConnectionInfo connectionInfo) {
+        public void bind(ServerListAdapter adapter, ServerConnectionSession connectionInfo) {
             mConnectionInfo = connectionInfo;
 
             Drawable d = DrawableCompat.wrap(mIconBg.getBackground());
@@ -371,11 +374,11 @@ public class ServerListAdapter extends RecyclerView.Adapter<RecyclerView.ViewHol
     }
 
     public interface ActiveServerClickListener {
-        void onServerClicked(ServerConnectionInfo server);
+        void onServerClicked(ServerConnectionSession server);
     }
 
     public interface ActiveServerLongClickListener {
-        void onServerLongClicked(ServerConnectionInfo server);
+        void onServerLongClicked(ServerConnectionSession server);
     }
 
     public interface InactiveServerClickListener {
