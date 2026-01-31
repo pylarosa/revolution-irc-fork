@@ -18,6 +18,35 @@ import io.mrarm.irc.chatlib.dto.NickPrefixList;
 import io.mrarm.irc.chatlib.dto.NickWithPrefix;
 import io.mrarm.irc.chatlib.irc.cap.Capability;
 
+/**
+ * MESSAGE PIPELINE (live delivery)
+ <p>
+ * Thread: IRC socket thread (NOT main)
+ <p>
+ <pre>
+ * [Socket Thread] 
+ * IRCConnection.handleInput 
+ *  → MessageHandler.handleLine 
+ *  → MessageCommandHandler.handle 
+ *    → resolveUser().get()          (BLOCKING) 
+ *    → ChannelData.addMessage 
+ *       → Capability.processMessage 
+ *       → MessageFilterList.filterMessage 
+ *             → ZNCPlaybackMessageFilter (may query history) 
+ *         → MessageStorageApi.addMessage 
+ *             → Room / Stub storage 
+ *             → MessageListener callbacks 
+ *                 → IRCService.onMessage 
+ *                     → NotificationManager
+ </pre>
+ <p>
+ * NOTE:
+ * - This class is a convergence point between protocol, conversation state,
+ *   storage, and live message fan-out.
+ * - Any blocking or storage access here affects the network thread.
+ * - Refactor with extreme care.
+ */
+
 public class ChannelData {
 
     private ServerConnectionData connection;
@@ -40,6 +69,7 @@ public class ChannelData {
         this.name = name;
     }
 
+    // NOTE Stored metadata load
     public void loadFromStoredData() {
         ChannelDataStorage storage = connection.getChannelDataStorage();
         if (storage == null)
@@ -123,6 +153,7 @@ public class ChannelData {
         }
     }
 
+    // NOTE Nick list resolution
     public List<NickWithPrefix> getMembersAsNickPrefixList() {
         synchronized (membersLock) {
             List<NickWithPrefix> list = new ArrayList<>();
@@ -298,16 +329,32 @@ public class ChannelData {
         }
     }
 
+    // NOTE Real choke point
+    // Filters may:
+    // - drop messages
+    // - buffer messages
+    // - inspect history
+    //
+    // All before persistence
+    // This explains why ZNC has to reach into storage.
     public void addMessage(MessageInfo message) {
         if (!connection.getMessageFilterList().filterMessage(connection, name, message))
             return;
         try {
+
+            //NOTE Message persistence
             connection.getMessageStorageApi().addMessage(name, message, null, null).get();
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         }
     }
 
+    // NOTE Capabilities mutate MessageInfo.Builder
+    // - Happens before filtering and storage
+    // - Still on socket thread
+    // Implications:
+    // - Capabilities are part of the protocol → domain transition
+    // - They are not UI or storage concerns
     public void addMessage(MessageInfo.Builder message, Map<String, String> tags) {
         if (tags != null) {
             for (Capability cap : connection.getCapabilityManager().getEnabledCapabilities())

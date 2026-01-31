@@ -12,7 +12,7 @@ import androidx.room.TypeConverters;
                 MessageEntity.class,
                 ConversationStateEntity.class
         },
-        version = 2,
+        version = 1,
         exportSchema = false
 )
 @TypeConverters({Converters.class})

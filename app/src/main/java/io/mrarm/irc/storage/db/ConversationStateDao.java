@@ -91,13 +91,13 @@ public interface ConversationStateDao {
                 WHERE serverId = :serverId
                   AND channel = :channel
             """)
-    void resetConversation(UUID serverId, String channel);
+    void deleteByChannel(UUID serverId, String channel);
 
     @Query("""
                 DELETE FROM conversation_state
                 WHERE serverId = :serverId
             """)
-    void removeServer(UUID serverId);
+    void deleteByServer(UUID serverId);
 
     @Query("""
                 DELETE FROM conversation_state

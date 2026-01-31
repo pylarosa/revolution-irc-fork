@@ -54,6 +54,7 @@ public class IRCConnection extends ServerConnectionApi {
         super(new ServerConnectionData());
         inputHandler = new MessageHandler(getServerConnectionData());
         getServerConnectionData().setUserInfoApi(new SimpleUserInfoApi());
+        // NOTE Violation: connection layer knows about message storage
         getServerConnectionData().setMessageStorageApi(new StubMessageStorageApi());
     }
 
@@ -125,6 +126,10 @@ public class IRCConnection extends ServerConnectionApi {
                 String command = readCommand();
                 Log.i("Got: ", command);
                 try {
+                    // NOTE: Socket read loop
+                    // MessageHandler parses line
+                    // Dispatches to CommandHandlers
+                    // MessageCommandHandler is invoked here
                     inputHandler.handleLine(command);
                 } catch (InvalidMessageException e) {
                     getServerConnectionData().getServerStatusData().addMessage(new StatusMessageInfo(
@@ -132,6 +137,9 @@ public class IRCConnection extends ServerConnectionApi {
                 }
             }
         } catch (IOException e) {
+
+            // Failure handling: disconnect warnings bypass normal channel routing;
+            // they go straight to conversation state
             e.printStackTrace();
             socketInputStream = null;
             synchronized (socketOutputStream) {
@@ -323,6 +331,10 @@ public class IRCConnection extends ServerConnectionApi {
         }, callback, errorCallback);
     }
 
+    // NOTE: Self-message path
+    // - outgoing messages are injected back into the same pipeline
+    // - no distinction between local echo vs server echo
+    // Any message pipeline change must preserve this behavior
     private void sendMessageInternal(String cmd, String channel, String message) throws IOException {
         try {
             List<String> params = new ArrayList<>();
@@ -398,6 +410,8 @@ public class IRCConnection extends ServerConnectionApi {
             throw t;
         }
 
+        // NOTE: Network thread
+        // Everything below happens on this thread unless explicitly queued.
         Thread thread = new Thread(this::handleInput);
         thread.setName("IRC Connection Handler");
         thread.start();
