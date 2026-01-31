@@ -158,6 +158,7 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
     }
 
     /** Called when a message is received on any subscribed connection, via Listener */
+    // NOTE WARNING: called on IRC socket thread
     private fun onMessage(
         connection: ServerConnectionSession,
         channel: String?,
@@ -168,29 +169,39 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
     }
 
     /** Triggered when a new IRC connection is established in the manager. */
+
+    // NOTE Listener execution context
+    // Thread depends on:
+    // - how RoomMessageStorageApi dispatches listeners (INCONSISTENT!)
     override fun onConnectionAdded(connection: ServerConnectionSession) {
         val listener = MessageListener { channel, info, id ->
             onMessage(connection, channel, info, id)
         }
         messageListeners[connection] = listener
-        connection.apiInstance?.messageStorageApi?.subscribeChannelMessages(
-            null,
-            listener,
-            null,
-            null
-        )
+
+        // NOTE IRCService does NOT listen to ChannelData -> It listens to MessageStorageApi
+        // Effective Pipeline:
+        // Protocol
+        // → ChannelData
+        // → MessageStorageApi
+        // → MessageListener
+        // → IRCService
+        // → NotificationManager
+
+        // This means:
+        // Storage facade is acting as both persistence + bus
+        // tight coupling already exists
+
+
+        val bus = connection.messageBus
+        bus?.subscribe(null, listener)
     }
 
     /** Triggered when a connection is removed; unsubscribes message listeners. */
     override fun onConnectionRemoved(connection: ServerConnectionSession) {
         val listener = messageListeners.remove(connection)
         if (listener != null) {
-            connection.apiInstance?.messageStorageApi?.unsubscribeChannelMessages(
-                null,
-                listener,
-                null,
-                null
-            )
+            connection.messageBus?.unsubscribe(null, listener)
         }
     }
 

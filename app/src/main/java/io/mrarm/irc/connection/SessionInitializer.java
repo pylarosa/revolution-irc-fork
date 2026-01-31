@@ -6,6 +6,7 @@ import io.mrarm.irc.BuildConfig;
 import io.mrarm.irc.DCCManager;
 import io.mrarm.irc.R;
 import io.mrarm.irc.chatlib.irc.IRCConnection;
+import io.mrarm.irc.chatlib.irc.ServerConnectionData;
 import io.mrarm.irc.chatlib.irc.cap.SASLCapability;
 import io.mrarm.irc.chatlib.irc.cap.SASLOptions;
 import io.mrarm.irc.chatlib.irc.filters.ZNCPlaybackMessageFilter;
@@ -13,6 +14,11 @@ import io.mrarm.irc.chatlib.irc.handlers.MessageCommandHandler;
 import io.mrarm.irc.chatlib.message.RoomMessageStorageApi;
 import io.mrarm.irc.chatlib.message.WritableMessageStorageApi;
 import io.mrarm.irc.config.ServerConfigData;
+import io.mrarm.irc.message.DefaultMessageBus;
+import io.mrarm.irc.message.DefaultMessagePipeline;
+import io.mrarm.irc.message.MessageBus;
+import io.mrarm.irc.message.MessagePipeline;
+import io.mrarm.irc.message.MessagePipelineContext;
 import io.mrarm.irc.storage.MessageStorageRepository;
 import io.mrarm.irc.util.IgnoreListMessageFilter;
 
@@ -25,44 +31,40 @@ public class SessionInitializer {
 
     public void attach(
             IRCConnection connection,
-            ServerConnectionSession info,
+            ServerConnectionSession session,
             ServerConfigData config,
             SASLOptions saslOptions
     ) {
         MessageStorageRepository repo = MessageStorageRepository.getInstance(context);
 
-        connection.getServerConnectionData().setMessageStorageRepository(repo);
-        connection.getServerConnectionData().setServerUUID(config.uuid);
+        ServerConnectionData serverConnectionData = connection.getServerConnectionData();
+
+        MessageBus bus = new DefaultMessageBus();
+        MessagePipelineContext pipelineContext = new MessagePipelineContext(config.uuid, repo);
+
+        MessagePipeline pipeline = new DefaultMessagePipeline(pipelineContext, bus);
+
+        serverConnectionData.setServerUUID(config.uuid);
+        serverConnectionData.setMessageStorageRepository(repo);
+        serverConnectionData.setMessageBus(bus);
+        serverConnectionData.setMessageSink(pipeline);
 
         WritableMessageStorageApi storageApi = new RoomMessageStorageApi(repo, config.uuid);
-        connection.getServerConnectionData().setMessageStorageApi(storageApi);
+        serverConnectionData.setMessageStorageApi(storageApi);
 
-        connection.getServerConnectionData()
-                .getMessageFilterList()
-                .addMessageFilter(new IgnoreListMessageFilter(config));
+        serverConnectionData.getMessageFilterList().addMessageFilter(new IgnoreListMessageFilter(config));
 
         if (saslOptions != null) {
-            connection.getServerConnectionData()
-                    .getCapabilityManager()
-                    .registerCapability(new SASLCapability(saslOptions));
+            serverConnectionData.getCapabilityManager().registerCapability(new SASLCapability(saslOptions));
         }
 
-        connection.getServerConnectionData()
-                .getMessageFilterList()
-                .addMessageFilter(
-                        new ZNCPlaybackMessageFilter(
-                                connection.getServerConnectionData()
-                        )
-                );
+        serverConnectionData.getMessageFilterList().addMessageFilter(new ZNCPlaybackMessageFilter(serverConnectionData));
 
-        MessageCommandHandler handler =
-                connection.getServerConnectionData()
-                        .getCommandHandlerList()
-                        .getHandler(MessageCommandHandler.class);
+        MessageCommandHandler handler = serverConnectionData.getCommandHandlerList().getHandler(MessageCommandHandler.class);
 
         DCCManager dccManager = DCCManager.getInstance(context);
         handler.setDCCServerManager(dccManager.getServer());
-        handler.setDCCClientManager(dccManager.createClient(info));
+        handler.setDCCClientManager(dccManager.createClient(session));
         handler.setCtcpVersionReply(
                 context.getString(R.string.app_name),
                 BuildConfig.VERSION_NAME,
@@ -70,7 +72,7 @@ public class SessionInitializer {
         );
 
         connection.addDisconnectListener(
-                (conn, reason) -> info.notifyDisconnected()
+                (conn, reason) -> session.notifyDisconnected()
         );
     }
 }

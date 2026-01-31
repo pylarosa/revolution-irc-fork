@@ -26,6 +26,7 @@ import io.mrarm.irc.chatlib.dto.RoomMessageId;
 import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.infrastructure.threading.AppAsyncExecutor;
 import io.mrarm.irc.storage.db.ChatLogDatabase;
+import io.mrarm.irc.storage.db.ConversationStateDao;
 import io.mrarm.irc.storage.db.IdSizePair;
 import io.mrarm.irc.storage.db.MessageDao;
 import io.mrarm.irc.storage.db.MessageEntity;
@@ -35,6 +36,7 @@ public class MessageStorageRepository {
 
     private final ChatLogDatabase db;
     private final MessageDao dao;
+    private final ConversationStateDao conversationStateDao;
     private final Context context;
     private static final int AUTO_CLEANUP_CHECK_EVERY = 500;
     private static final double AUTO_CLEANUP_HYSTERESIS = 1.10; // 10%
@@ -48,6 +50,7 @@ public class MessageStorageRepository {
         context = ctx;
         db = ChatLogDatabase.getInstance(ctx);
         dao = db.messageDao();
+        conversationStateDao = db.conversationStateDao();
     }
 
     public static MessageStorageRepository getInstance(Context context) {
@@ -151,7 +154,10 @@ public class MessageStorageRepository {
         synchronized (maintenanceLock) {
             db.runInTransaction(() -> dao.replaceDataByServer(serverId));
 
-            db.runInTransaction(() -> dao.deleteByServer(serverId));
+            db.runInTransaction(() -> {
+                dao.deleteByServer(serverId);
+                conversationStateDao.deleteByServer(serverId);
+            });
         }
         compactUnlocked();
     }
@@ -160,7 +166,10 @@ public class MessageStorageRepository {
         synchronized (maintenanceLock) {
             db.runInTransaction(dao::replaceAll);
 
-            db.runInTransaction(dao::deleteAll);
+            db.runInTransaction(() -> {
+                dao.deleteAll();
+                conversationStateDao.clear();
+            });
         }
         compactUnlocked();
     }

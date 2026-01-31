@@ -12,6 +12,8 @@ import io.mrarm.irc.chatlib.dto.MessageInfo;
 import io.mrarm.irc.chatlib.irc.cap.CapabilityManager;
 import io.mrarm.irc.chatlib.message.WritableMessageStorageApi;
 import io.mrarm.irc.chatlib.user.WritableUserInfoApi;
+import io.mrarm.irc.message.MessageBus;
+import io.mrarm.irc.message.MessageSink;
 import io.mrarm.irc.storage.MessageStorageRepository;
 
 public class ServerConnectionData {
@@ -33,10 +35,28 @@ public class ServerConnectionData {
     private CapabilityManager capabilityManager = new CapabilityManager(this);
     private final List<ChannelListListener> channelListListeners = new ArrayList<>();
     private UUID serverUUID;
+    private MessageSink messageSink;
+    private MessageBus messageBus;
 
     public ServerConnectionData() {
         commandHandlerList.addDefaultHandlers();
         capabilityManager.addDefaultCapabilities();
+    }
+
+    public synchronized MessageSink getMessageSink() {
+        return messageSink;
+    }
+
+    public synchronized void setMessageSink(MessageSink messageSink) {
+        this.messageSink = messageSink;
+    }
+
+    public MessageBus getMessageBus() {
+        return messageBus;
+    }
+
+    public void setMessageBus(MessageBus messageBus) {
+        this.messageBus = messageBus;
     }
 
     public synchronized void setUserNick(String nick) {
@@ -201,7 +221,9 @@ public class ServerConnectionData {
     }
 
     public void addLocalMessageToAllChannels(MessageInfo messageInfo) {
-        messageStorageApi.addMessage(null, messageInfo, null, null);
+        if (messageSink != null) {
+            messageSink.accept(null, messageInfo);
+        }
     }
 
     public ServerStatusData getServerStatusData() {
@@ -215,5 +237,4 @@ public class ServerConnectionData {
     public void unsubscribeChannelList(ChannelListListener listener) {
         channelListListeners.remove(listener);
     }
-    
 }

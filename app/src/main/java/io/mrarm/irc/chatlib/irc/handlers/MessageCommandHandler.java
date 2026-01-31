@@ -48,6 +48,7 @@ public class MessageCommandHandler implements CommandHandler {
         this.dccClientManager = dccClientManager;
     }
 
+    // This is the first semantic message point after parsing.
     @Override
     public void handle(ServerConnectionData connection, MessagePrefix sender, String command, List<String> params,
                        Map<String, String> tags)
@@ -57,10 +58,17 @@ public class MessageCommandHandler implements CommandHandler {
                     MessageInfo.MessageType.NORMAL);
             UUID userUUID = null;
             if (sender != null)
+
+                // NOTE Resolves sender identity (BLOCKING)
+                // .get() => blocking Future
+                // Happens on network thread
                 userUUID = connection.getUserInfoApi().resolveUser(sender.getNick(), sender.getUser(), sender.getHost(),
                         null, null).get();
+
             String[] targetChannels = CommandHandler.getParamWithCheck(params, 0).split(",");
 
+            // NOTE CTCP handling: pure protocol logic
+            // Side effects: ServerStatusData.addMessage(...) - connection.getApi().sendNotice(...)
             String text = CommandHandler.getParamWithCheck(params, 1);
             if (text.indexOf('\20') != -1)
                 text = lowDequote(text);
@@ -74,6 +82,8 @@ public class MessageCommandHandler implements CommandHandler {
                 text = text.substring(0, ctcpS) + text.substring(ctcpE + 1, text.length());
             }
 
+            // NOTE Channel resolution (conversation logic mixed in)
+            // Architectural violation: Conversation state mutation happening inside protocol handler
             for (String channel : targetChannels) {
                 ChannelData channelData = null;
                 try {
@@ -91,6 +101,9 @@ public class MessageCommandHandler implements CommandHandler {
                     if (channelData == null)
                         continue;
                 }
+                // NOTE: Message dispatch: at this point protocol layer hands off to ChannelData
+                // -> everything downstream is no longer protocol
+                // Message creation (domain object)
                 channelData.addMessage(new MessageInfo.Builder(sender.toSenderInfo(userUUID, channelData), text, type), tags);
             }
         } catch (InterruptedException | ExecutionException e) {

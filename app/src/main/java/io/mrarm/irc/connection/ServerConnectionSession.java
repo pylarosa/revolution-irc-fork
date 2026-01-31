@@ -20,7 +20,9 @@ import io.mrarm.irc.chatlib.irc.cap.SASLOptions;
 import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.infrastructure.threading.DelayScheduler;
-import io.mrarm.irc.util.StubMessageStorageApi;
+import io.mrarm.irc.message.MessageBus;
+import io.mrarm.irc.message.MessagePipeline;
+import io.mrarm.irc.message.MessageSink;
 import io.mrarm.irc.util.UserAutoRunCommandHelper;
 
 /**
@@ -79,6 +81,16 @@ public class ServerConnectionSession {
     private final List<ChannelListChangeListener> mChannelsListeners = new ArrayList<>();
     private int mCurrentReconnectAttempt = -1;
     private final ChatUIData mChatUIData = new ChatUIData();
+
+    public MessageBus getMessageBus() {
+        return messageBus;
+    }
+
+    public void setMessageBus(MessageBus messageBus) {
+        this.messageBus = messageBus;
+    }
+
+    private MessageBus messageBus;
 
 
     public ServerConnectionSession(ServerConnectionManager manager,
@@ -270,7 +282,12 @@ public class ServerConnectionSession {
         if (getApiInstance() != null) {
             ServerConnectionData connectionData = ((ServerConnectionApi) getApiInstance())
                     .getServerConnectionData();
-            connectionData.setMessageStorageApi(new StubMessageStorageApi());
+
+            MessageSink sink = connectionData.getMessageSink();
+            if (sink instanceof MessagePipeline) {
+                ((MessagePipeline) sink).shutdown();
+            }
+
             connectionData.setChannelDataStorage(null);
         }
     }
