@@ -30,7 +30,6 @@ import io.mrarm.irc.chatlib.irc.handlers.WhoisCommandHandler;
 import io.mrarm.irc.chatlib.user.SimpleUserInfoApi;
 import io.mrarm.irc.chatlib.util.SettableFuture;
 import io.mrarm.irc.chatlib.util.SimpleRequestExecutor;
-import io.mrarm.irc.util.StubMessageStorageApi;
 
 public class IRCConnection extends ServerConnectionApi {
 
@@ -54,8 +53,7 @@ public class IRCConnection extends ServerConnectionApi {
         super(new ServerConnectionData());
         inputHandler = new MessageHandler(getServerConnectionData());
         getServerConnectionData().setUserInfoApi(new SimpleUserInfoApi());
-        // NOTE Violation: connection layer knows about message storage
-        getServerConnectionData().setMessageStorageApi(new StubMessageStorageApi());
+
     }
 
     private void sendCommandRaw(String string, boolean flush) throws IOException {

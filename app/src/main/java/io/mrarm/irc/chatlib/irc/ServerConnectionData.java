@@ -11,7 +11,6 @@ import io.mrarm.irc.chatlib.NoSuchChannelException;
 import io.mrarm.irc.chatlib.dto.MessageId;
 import io.mrarm.irc.chatlib.dto.MessageInfo;
 import io.mrarm.irc.chatlib.irc.cap.CapabilityManager;
-import io.mrarm.irc.chatlib.message.WritableMessageStorageApi;
 import io.mrarm.irc.chatlib.user.WritableUserInfoApi;
 import io.mrarm.irc.message.MessageBus;
 import io.mrarm.irc.message.MessageSink;
@@ -26,7 +25,6 @@ public class ServerConnectionData {
     private final HashMap<String, ChannelData> joinedChannels = new HashMap<>();
     private ServerStatusData serverStatusData = new ServerStatusData();
     private WritableUserInfoApi userInfoApi;
-    private WritableMessageStorageApi messageStorageApi;
     private MessageStorageRepository messageStorageRepository;
     private ChannelDataStorage channelDataStorage;
     private NickPrefixParser nickPrefixParser = OneCharNickPrefixParser.getInstance();
@@ -108,14 +106,6 @@ public class ServerConnectionData {
 
     public synchronized void setUserInfoApi(WritableUserInfoApi api) {
         this.userInfoApi = api;
-    }
-
-    public synchronized WritableMessageStorageApi getMessageStorageApi() {
-        return messageStorageApi;
-    }
-
-    public synchronized void setMessageStorageApi(WritableMessageStorageApi messageStorageApi) {
-        this.messageStorageApi = messageStorageApi;
     }
 
     public synchronized ChannelDataStorage getChannelDataStorage() {

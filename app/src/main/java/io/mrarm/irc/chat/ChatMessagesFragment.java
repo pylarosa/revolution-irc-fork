@@ -35,7 +35,6 @@ import io.mrarm.irc.IRCChooserTargetService;
 import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.NotificationManager;
 import io.mrarm.irc.R;
-import io.mrarm.irc.StorageSettingsAdapter;
 import io.mrarm.irc.chatlib.ChannelInfoListener;
 import io.mrarm.irc.chatlib.StatusMessageListener;
 import io.mrarm.irc.chatlib.dto.ChannelInfo;
@@ -94,7 +93,6 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
     private boolean mNeedsUnsubscribeStatusMessages = false;
     private MessageListAfterIdentifier mLoadOlderIdentifier;
     private MessageListAfterIdentifier mLoadNewerIdentifier;
-    private StorageSettingsAdapter storageSettingsAdapter;
     private boolean mIsLoadingMore;
     private MessageFilterOptions mMessageFilterOptions;
     private View mUnreadCtr;
