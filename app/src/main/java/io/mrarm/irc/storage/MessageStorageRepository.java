@@ -68,6 +68,12 @@ public class MessageStorageRepository {
         synchronized (maintenanceLock) {
             long id = dao.insert(msg);
 
+            if (id == -1 && msg.dedupeKey != null) {
+                long existing = dao.findIdByDedupeKey(msg.dedupeKey);
+                Log.d("[MessageStorageRepository]", "Playback dedupe hit, reusing id=" + existing);
+                id = existing;
+            }
+
             if (++insertCounter >= AUTO_CLEANUP_CHECK_EVERY) {
                 insertCounter = 0;
                 considerAutoCleanup();
@@ -76,9 +82,6 @@ public class MessageStorageRepository {
         }
     }
 
-    public MessageList loadRecent(UUID serverId, String channel, int limit) {
-        return toMessageListFromRoom(dao.loadRecent(serverId, channel, limit));
-    }
     // Async variants
     public void loadOlderAsync(UUID serverId, String channel, long beforeId, int limit,
                                Consumer<List<MessageEntity>> callback) {

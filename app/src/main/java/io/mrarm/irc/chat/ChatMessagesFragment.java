@@ -56,6 +56,7 @@ import io.mrarm.irc.config.SettingsHelper;
 import io.mrarm.irc.config.UiSettingChangeCallback;
 import io.mrarm.irc.connection.ServerConnectionManager;
 import io.mrarm.irc.connection.ServerConnectionSession;
+import io.mrarm.irc.message.MessageBus;
 import io.mrarm.irc.storage.MessageStorageRepository;
 import io.mrarm.irc.util.LongPressSelectTouchListener;
 import io.mrarm.irc.util.ScrollPosLinearLayoutManager;
@@ -198,14 +199,14 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
             Long jumpId = ((ChatFragment) getParentFragment()).getAndClearMessageJump(mChannelName);
             reloadMessages(jumpId);
 
-            connectionInfo.getApiInstance()
-                    .getMessageStorageApi()
-                    .subscribeChannelMessages(
-                            mChannelName,
-                            ChatMessagesFragment.this,
-                            (ignored) -> mNeedsUnsubscribeChannelInfo = true,
-                            null
-                    );
+            MessageBus bus =
+                    ((ServerConnectionApi) mConnection.getApiInstance())
+                            .getServerConnectionData()
+                            .getMessageBus();
+
+            bus.subscribe(mChannelName, this);
+            mNeedsUnsubscribeMessages = true;
+
 
         } else if (getArguments().getBoolean(ARG_DISPLAY_STATUS)) {
             mStatusAdapter = new ServerStatusMessagesAdapter(mConnection, new StatusMessageList(new ArrayList<>()));
@@ -239,8 +240,13 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
 
         if (mNeedsUnsubscribeChannelInfo)
             mConnection.getApiInstance().unsubscribeChannelInfo(getArguments().getString(ARG_CHANNEL_NAME), ChatMessagesFragment.this, null, null);
-        if (mNeedsUnsubscribeMessages)
-            mConnection.getApiInstance().getMessageStorageApi().unsubscribeChannelMessages(getArguments().getString(ARG_CHANNEL_NAME), ChatMessagesFragment.this, null, null);
+        if (mNeedsUnsubscribeMessages) {
+            MessageBus bus =
+                    ((ServerConnectionApi) mConnection.getApiInstance())
+                            .getServerConnectionData()
+                            .getMessageBus();
+            bus.unsubscribe(mChannelName, this);
+        }
         if (mNeedsUnsubscribeStatusMessages)
             mConnection.getApiInstance().unsubscribeStatusMessages(ChatMessagesFragment.this, null, null);
 

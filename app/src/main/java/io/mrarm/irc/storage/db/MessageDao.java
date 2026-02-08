@@ -2,6 +2,7 @@ package io.mrarm.irc.storage.db;
 
 import androidx.room.Dao;
 import androidx.room.Insert;
+import androidx.room.OnConflictStrategy;
 import androidx.room.Query;
 
 import java.util.List;
@@ -12,7 +13,7 @@ import io.mrarm.irc.storage.MessageStatsRepository;
 @Dao
 public interface MessageDao {
 
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     long insert(MessageEntity msg);
 
     /**
@@ -107,28 +108,36 @@ public interface MessageDao {
     void replaceAll();
 
     @Query("""
-    SELECT id,
-    aprox_row_size AS aproxRowSize
-    FROM messages_logs
-    ORDER BY id ASC
-    LIMIT :limit
-""")
+                SELECT id,
+                aprox_row_size AS aproxRowSize
+                FROM messages_logs
+                ORDER BY id ASC
+                LIMIT :limit
+            """)
     List<IdSizePair> selectOldestGlobal(int limit);
 
 
     @Query("""
-    SELECT id,
-    aprox_row_size AS aproxRowSize
-    FROM messages_logs
-    WHERE serverId = :serverId
-    ORDER BY id ASC
-    LIMIT :limit
-""")
+                SELECT id,
+                aprox_row_size AS aproxRowSize
+                FROM messages_logs
+                WHERE serverId = :serverId
+                ORDER BY id ASC
+                LIMIT :limit
+            """)
     List<IdSizePair> selectOldestForServer(UUID serverId, int limit);
 
     @Query("""
-    DELETE FROM messages_logs
-    WHERE id IN (:ids)
-""")
+                DELETE FROM messages_logs
+                WHERE id IN (:ids)
+            """)
     int deleteByIds(List<Long> ids);
+
+    @Query("""
+            SELECT id FROM messages_logs 
+            WHERE dedupe_key = :dedupeKey 
+            LIMIT 1 
+            """
+    )
+    long findIdByDedupeKey(String dedupeKey);
 }

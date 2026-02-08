@@ -1,5 +1,10 @@
 package io.mrarm.irc.message;
 
+import android.util.Log;
+
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 import io.mrarm.irc.chatlib.dto.MessageId;
 import io.mrarm.irc.chatlib.dto.MessageInfo;
 import io.mrarm.irc.chatlib.dto.RoomMessageId;
@@ -22,25 +27,45 @@ public class DefaultMessagePipeline implements MessagePipeline {
         this.messageBus = messageBus;
     }
 
+    public final ExecutorService pipelineExecutor =
+            Executors.newSingleThreadExecutor(r -> {
+                Thread t = new Thread(r, "MessagePipeline");
+                t.setDaemon(true);
+                return t;
+            });
+
     @Override
     public void accept(String channelName, MessageInfo message) {
-        final MessageId messageId;
+        Log.d(
+                "MessagePipeline",
+                "accept: server=" + pipelineContext.serverId +
+                        " room=" + channelName +
+                        " sender=" + (message.getSender() != null ? message.getSender().getNick() : "<none>") +
+                        " text=" + message.getMessage()
+        );
 
-        try {
-            messageId = persist(channelName, message);
-        } catch (Throwable t) {
-            // MUST NOT throw to caller
-            // Swallow or log — policy decision later
-            return;
-        }
+        pipelineExecutor.execute(() -> {
+            final MessageId messageId;
+            try {
+                messageId = persist(channelName, message);
+            } catch (Throwable t) {
+                Log.e("MessagePipeline", "persist failed", t);
+                return;
+            }
 
-        messageBus.emit(channelName, message, messageId);
+            Log.d(
+                    "MessagePipeline",
+                    "emit: room=" + channelName +
+                            " id=" + messageId
+            );
+
+            messageBus.emit(channelName, message, messageId);
+        });
     }
 
     @Override
     public void shutdown() {
-        // no-op for now
-        // future: flush queues, stop executors, etc.
+        pipelineExecutor.shutdown();
     }
 
     protected MessageId persist(String channelName, MessageInfo message) {
