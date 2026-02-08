@@ -8,6 +8,7 @@ import java.util.concurrent.ExecutionException;
 
 import io.mrarm.irc.chatlib.ChannelListListener;
 import io.mrarm.irc.chatlib.NoSuchChannelException;
+import io.mrarm.irc.chatlib.dto.MessageId;
 import io.mrarm.irc.chatlib.dto.MessageInfo;
 import io.mrarm.irc.chatlib.irc.cap.CapabilityManager;
 import io.mrarm.irc.chatlib.message.WritableMessageStorageApi;
@@ -37,6 +38,11 @@ public class ServerConnectionData {
     private UUID serverUUID;
     private MessageSink messageSink;
     private MessageBus messageBus;
+    private MessageId.Parser messageIdParser;
+
+    public void setMessageIdParser(MessageId.Parser p) { messageIdParser = p; }
+
+    public MessageId.Parser getMessageIdParser() { return messageIdParser; }
 
     public ServerConnectionData() {
         commandHandlerList.addDefaultHandlers();

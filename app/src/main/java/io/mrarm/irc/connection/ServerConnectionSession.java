@@ -20,7 +20,6 @@ import io.mrarm.irc.chatlib.irc.cap.SASLOptions;
 import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.infrastructure.threading.DelayScheduler;
-import io.mrarm.irc.message.MessageBus;
 import io.mrarm.irc.message.MessagePipeline;
 import io.mrarm.irc.message.MessageSink;
 import io.mrarm.irc.util.UserAutoRunCommandHelper;
@@ -81,17 +80,6 @@ public class ServerConnectionSession {
     private final List<ChannelListChangeListener> mChannelsListeners = new ArrayList<>();
     private int mCurrentReconnectAttempt = -1;
     private final ChatUIData mChatUIData = new ChatUIData();
-
-    public MessageBus getMessageBus() {
-        return messageBus;
-    }
-
-    public void setMessageBus(MessageBus messageBus) {
-        this.messageBus = messageBus;
-    }
-
-    private MessageBus messageBus;
-
 
     public ServerConnectionSession(ServerConnectionManager manager,
                                    SessionInitializer initializer,
@@ -328,7 +316,6 @@ public class ServerConnectionSession {
     public MessageId.Parser getMessageIdParser() {
         return ((ServerConnectionApi) getApiInstance())
                 .getServerConnectionData()
-                .getMessageStorageApi()
                 .getMessageIdParser();
     }
 

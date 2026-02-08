@@ -7,14 +7,11 @@ import io.mrarm.irc.chatlib.dto.ChannelInfo;
 import io.mrarm.irc.chatlib.dto.ChannelList;
 import io.mrarm.irc.chatlib.dto.StatusMessageList;
 import io.mrarm.irc.chatlib.dto.WhoisInfo;
-import io.mrarm.irc.chatlib.message.MessageStorageApi;
 import io.mrarm.irc.chatlib.user.UserInfoApi;
 
 public interface ChatApi {
 
     UserInfoApi getUserInfoApi();
-
-    MessageStorageApi getMessageStorageApi();
 
     Future<Void> quit(String message, ResponseCallback<Void> callback, ResponseErrorCallback errorCallback);
 
