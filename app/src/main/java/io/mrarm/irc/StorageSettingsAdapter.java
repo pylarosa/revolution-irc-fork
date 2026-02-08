@@ -182,6 +182,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                                     v.getContext(),
                                     false,
                                     null,
+                                    null,
                                     roomStorageRepository,
                                     () -> refreshServerLogsFromDb(v.getContext()));
                         })
@@ -298,6 +299,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                 RemoveDataTask.start(
                         itemView.getContext(),
                         false,
+                        null,
                         serverId,
                         roomStorageRepository,
                         () -> refreshServerLogsFromDb(itemView.getContext()));
@@ -358,6 +360,7 @@ public class StorageSettingsAdapter extends RecyclerView.Adapter {
                             RemoveDataTask.start(
                                     v.getContext(),
                                     true,
+                                    null,
                                     null,
                                     roomStorageRepository,
                                     () -> {

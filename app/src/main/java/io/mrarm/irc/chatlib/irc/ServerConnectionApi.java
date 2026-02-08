@@ -17,7 +17,6 @@ import io.mrarm.irc.chatlib.dto.ChannelList;
 import io.mrarm.irc.chatlib.dto.StatusMessageInfo;
 import io.mrarm.irc.chatlib.dto.StatusMessageList;
 import io.mrarm.irc.chatlib.irc.handlers.ListCommandHandler;
-import io.mrarm.irc.chatlib.message.MessageStorageApi;
 import io.mrarm.irc.chatlib.user.UserInfoApi;
 import io.mrarm.irc.chatlib.util.SimpleRequestExecutor;
 
@@ -39,10 +38,6 @@ public abstract class ServerConnectionApi implements ChatApi {
         return serverConnectionData.getUserInfoApi();
     }
 
-    @Override
-    public MessageStorageApi getMessageStorageApi() {
-        return serverConnectionData.getMessageStorageApi();
-    }
 
     public void notifyMotdReceived() {
         // stub

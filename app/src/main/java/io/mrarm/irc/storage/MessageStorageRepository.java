@@ -156,6 +156,21 @@ public class MessageStorageRepository {
         return new MessageList(infos, ids, null, null);
     }
 
+    public void deleteMessages(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return;
+
+        synchronized (maintenanceLock) {
+            db.runInTransaction(() -> dao.replaceDataByIds(ids));
+
+            db.runInTransaction(() -> {
+                dao.deleteByIds(ids);
+            });
+        }
+
+        compactUnlocked();
+    }
+
+
     public void deleteLogsForServer(UUID serverId) {
         synchronized (maintenanceLock) {
             db.runInTransaction(() -> dao.replaceDataByServer(serverId));

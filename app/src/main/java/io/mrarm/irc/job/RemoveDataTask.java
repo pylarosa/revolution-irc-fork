@@ -14,6 +14,7 @@ import androidx.lifecycle.DefaultLifecycleObserver;
 import androidx.lifecycle.LifecycleOwner;
 
 import java.io.File;
+import java.util.List;
 import java.util.UUID;
 
 import io.mrarm.irc.R;
@@ -38,26 +39,32 @@ public class RemoveDataTask {
 
     private final Context context;
     private final boolean deleteConfig;
+    private final List<Long> deleteMessageEntries;
     private final UUID deleteServerLogs;
     private final MessageStorageRepository roomRepository;
     private final OnRemoveDataFinishedListener listener;
 
     private AlertDialog progressDialog;
 
-    private RemoveDataTask(Context context, boolean deleteConfig, UUID deleteServerLogs,
+    private RemoveDataTask(Context context, boolean deleteConfig, UUID deleteServerLogs, List<Long> deleteMessageEntries,
                            MessageStorageRepository roomRepository,
                            OnRemoveDataFinishedListener listener) {
         this.context = context;
         this.deleteConfig = deleteConfig;
         this.deleteServerLogs = deleteServerLogs;
+        this.deleteMessageEntries = deleteMessageEntries;
         this.roomRepository = roomRepository;
         this.listener = listener;
     }
 
-    public static void start(Context context, boolean deleteConfig, UUID deleteServerLogs, MessageStorageRepository roomRepository,
+    public static void start(Context context,
+                             boolean deleteConfig,
+                             List<Long> deleteMessageEntries,
+                             UUID deleteServerLogs,
+                             MessageStorageRepository roomRepository,
                              OnRemoveDataFinishedListener listener) {
 
-        new RemoveDataTask(context, deleteConfig, deleteServerLogs, roomRepository, listener)
+        new RemoveDataTask(context, deleteConfig, deleteServerLogs, deleteMessageEntries, roomRepository, listener)
                 .execute();
     }
 
@@ -72,8 +79,14 @@ public class RemoveDataTask {
     private void performDeletion() {
 
         try {
+            if (deleteMessageEntries != null && !deleteMessageEntries.isEmpty()) {
+                roomRepository.deleteMessages(deleteMessageEntries);
+                return;
+            }
+
             if (deleteConfig) {
                 clearAllConfigData();
+                return;
             }
 
             if (deleteServerLogs != null) {

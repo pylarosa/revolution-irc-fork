@@ -6,14 +6,13 @@ import io.mrarm.irc.BuildConfig;
 import io.mrarm.irc.DCCManager;
 import io.mrarm.irc.NotificationManager;
 import io.mrarm.irc.R;
+import io.mrarm.irc.chatlib.dto.RoomMessageId;
 import io.mrarm.irc.chatlib.irc.IRCConnection;
 import io.mrarm.irc.chatlib.irc.ServerConnectionData;
 import io.mrarm.irc.chatlib.irc.cap.SASLCapability;
 import io.mrarm.irc.chatlib.irc.cap.SASLOptions;
 import io.mrarm.irc.chatlib.irc.filters.ZNCPlaybackMessageFilter;
 import io.mrarm.irc.chatlib.irc.handlers.MessageCommandHandler;
-import io.mrarm.irc.chatlib.message.RoomMessageStorageApi;
-import io.mrarm.irc.chatlib.message.WritableMessageStorageApi;
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.message.DefaultMessageBus;
 import io.mrarm.irc.message.DefaultMessagePipeline;
@@ -49,6 +48,8 @@ public class SessionInitializer {
         serverConnectionData.setMessageStorageRepository(repo);
         serverConnectionData.setMessageBus(bus);
         serverConnectionData.setMessageSink(pipeline);
+        serverConnectionData.setMessageIdParser(new RoomMessageId.Parser());
+
 
         bus.subscribe(null, (channel, message, messageId) -> {
 
@@ -66,8 +67,6 @@ public class SessionInitializer {
                     );
         });
 
-        WritableMessageStorageApi storageApi = new RoomMessageStorageApi(repo, config.uuid);
-        serverConnectionData.setMessageStorageApi(storageApi);
 
         serverConnectionData.getMessageFilterList().addMessageFilter(new IgnoreListMessageFilter(config));
 

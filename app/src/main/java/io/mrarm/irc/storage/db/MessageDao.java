@@ -140,4 +140,17 @@ public interface MessageDao {
             """
     )
     long findIdByDedupeKey(String dedupeKey);
+
+
+    @Query("""
+            UPDATE messages_logs
+            SET
+                text = NULL,
+                sender = NULL,
+                channel = 'null',
+                timestamp = 0,
+                extra_json = NULL
+            WHERE id in (:ids);
+            """)
+    int replaceDataByIds(List<Long> ids);
 }

@@ -35,6 +35,7 @@ import io.mrarm.irc.IRCChooserTargetService;
 import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.NotificationManager;
 import io.mrarm.irc.R;
+import io.mrarm.irc.StorageSettingsAdapter;
 import io.mrarm.irc.chatlib.ChannelInfoListener;
 import io.mrarm.irc.chatlib.StatusMessageListener;
 import io.mrarm.irc.chatlib.dto.ChannelInfo;
@@ -56,6 +57,7 @@ import io.mrarm.irc.config.SettingsHelper;
 import io.mrarm.irc.config.UiSettingChangeCallback;
 import io.mrarm.irc.connection.ServerConnectionManager;
 import io.mrarm.irc.connection.ServerConnectionSession;
+import io.mrarm.irc.job.RemoveDataTask;
 import io.mrarm.irc.message.MessageBus;
 import io.mrarm.irc.storage.MessageStorageRepository;
 import io.mrarm.irc.util.LongPressSelectTouchListener;
@@ -92,6 +94,7 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
     private boolean mNeedsUnsubscribeStatusMessages = false;
     private MessageListAfterIdentifier mLoadOlderIdentifier;
     private MessageListAfterIdentifier mLoadNewerIdentifier;
+    private StorageSettingsAdapter storageSettingsAdapter;
     private boolean mIsLoadingMore;
     private MessageFilterOptions mMessageFilterOptions;
     private View mUnreadCtr;
@@ -718,15 +721,35 @@ public class ChatMessagesFragment extends Fragment implements StatusMessageListe
     }
 
     public void deleteSelectedMessages() {
-        List<MessageId> msgIds = mAdapter.getSelectedMessageIds();
-        for (Long l : mAdapter.getSelectedItems()) {
+        List<Long> ids = new ArrayList<>(mAdapter.getSelectedItems());
+
+        // 1. Extract ROOM ids from MessageIds
+        List<Long> roomIds = new ArrayList<>();
+        for (MessageId mid : mAdapter.getSelectedMessageIds()) {
+            if (mid instanceof RoomMessageId) {
+                roomIds.add(((RoomMessageId) mid).getId());
+            }
+        }
+
+        if (roomIds.isEmpty())
+            return;
+
+        for (Long l : ids) {
             ChatMessagesAdapter.Item i = mAdapter.getMessage(mAdapter.getItemPosition(l));
-            if (i instanceof ChatMessagesAdapter.MessageItem)
+            if (i instanceof ChatMessagesAdapter.MessageItem) {
                 ((ChatMessagesAdapter.MessageItem) i).mHidden = true;
+            }
         }
         mAdapter.notifyDataSetChanged();
-        mConnection.getApiInstance().getMessageStorageApi().deleteMessages(mChannelName, msgIds,
-                null, null);
+
+        RemoveDataTask.start(
+                requireContext(),
+                false,                  // deleteConfig
+                roomIds,                    // deleteMessageEntries
+                null,                   // deleteServerLogs
+                mRoomRepo,
+                null                    // listener (optional)
+        );
     }
 
 
