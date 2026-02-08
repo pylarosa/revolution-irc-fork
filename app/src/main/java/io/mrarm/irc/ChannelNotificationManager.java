@@ -84,7 +84,7 @@ public class ChannelNotificationManager {
                     );
 
             MessageId firstUnread = null;
-            if (state.firstUnreadId != 0) {
+            if (state != null && state.firstUnreadId != 0) {
                 firstUnread = mConnection.getMessageIdParser()
                         .parse(Long.toString(state.firstUnreadId));
             }

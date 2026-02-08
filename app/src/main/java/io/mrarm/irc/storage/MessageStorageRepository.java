@@ -76,6 +76,9 @@ public class MessageStorageRepository {
         }
     }
 
+    public MessageList loadRecent(UUID serverId, String channel, int limit) {
+        return toMessageListFromRoom(dao.loadRecent(serverId, channel, limit));
+    }
     // Async variants
     public void loadOlderAsync(UUID serverId, String channel, long beforeId, int limit,
                                Consumer<List<MessageEntity>> callback) {

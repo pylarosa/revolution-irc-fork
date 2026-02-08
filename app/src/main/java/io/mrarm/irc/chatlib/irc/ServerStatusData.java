@@ -10,7 +10,7 @@ public class ServerStatusData {
 
     private final List<StatusMessageInfo> messages = new ArrayList<>();
     private String motd;
-    private List<StatusMessageListener> messageListeners = new ArrayList<>();
+    private final List<StatusMessageListener> messageListeners = new ArrayList<>();
 
     private String getMotd() {
         synchronized (this) {
