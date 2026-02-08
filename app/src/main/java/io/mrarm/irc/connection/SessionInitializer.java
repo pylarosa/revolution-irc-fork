@@ -4,6 +4,7 @@ import android.content.Context;
 
 import io.mrarm.irc.BuildConfig;
 import io.mrarm.irc.DCCManager;
+import io.mrarm.irc.NotificationManager;
 import io.mrarm.irc.R;
 import io.mrarm.irc.chatlib.irc.IRCConnection;
 import io.mrarm.irc.chatlib.irc.ServerConnectionData;
@@ -48,6 +49,22 @@ public class SessionInitializer {
         serverConnectionData.setMessageStorageRepository(repo);
         serverConnectionData.setMessageBus(bus);
         serverConnectionData.setMessageSink(pipeline);
+
+        bus.subscribe(null, (channel, message, messageId) -> {
+
+            // Ignore ZNC playback / history replays
+            if (message.isPlayback())
+                return;
+
+            NotificationManager.getInstance()
+                    .processMessage(
+                            context.getApplicationContext(),
+                            session,
+                            channel,
+                            message,
+                            messageId
+                    );
+        });
 
         WritableMessageStorageApi storageApi = new RoomMessageStorageApi(repo, config.uuid);
         serverConnectionData.setMessageStorageApi(storageApi);

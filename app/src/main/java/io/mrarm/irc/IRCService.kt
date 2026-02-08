@@ -16,8 +16,6 @@ import androidx.annotation.Keep
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
-import io.mrarm.irc.chatlib.dto.MessageId
-import io.mrarm.irc.chatlib.dto.MessageInfo
 import io.mrarm.irc.chatlib.message.MessageListener
 import io.mrarm.irc.connection.ServerConnectionManager
 import io.mrarm.irc.connection.ServerConnectionSession
@@ -39,6 +37,16 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
     private val messageListeners = mutableMapOf<ServerConnectionSession, MessageListener>()
     private var connectivityManager: ConnectivityManager? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
+
+    override fun onConnectionAdded(connection: ServerConnectionSession) {
+        // NO-OP
+        // Message delivery is now handled by MessageBus subscribers,
+        // not by IRCService.
+    }
+
+    override fun onConnectionRemoved(connection: ServerConnectionSession) {
+        // NO-OP
+    }
 
     /** Called when the service is first created. Initializes managers and listeners. */
     override fun onCreate() {
@@ -157,7 +165,7 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
         return START_STICKY
     }
 
-    /** Called when a message is received on any subscribed connection, via Listener */
+    /** Called when a message is received on any subscribed connection, via Listener *//*
     // NOTE WARNING: called on IRC socket thread
     private fun onMessage(
         connection: ServerConnectionSession,
@@ -166,14 +174,14 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
         messageId: MessageId
     ) {
         NotificationManager.getInstance().processMessage(this, connection, channel, info, messageId)
-    }
+    }*/
 
     /** Triggered when a new IRC connection is established in the manager. */
 
     // NOTE Listener execution context
     // Thread depends on:
     // - how RoomMessageStorageApi dispatches listeners (INCONSISTENT!)
-    override fun onConnectionAdded(connection: ServerConnectionSession) {
+   /* override fun onConnectionAdded(connection: ServerConnectionSession) {
         val listener = MessageListener { channel, info, id ->
             onMessage(connection, channel, info, id)
         }
@@ -195,15 +203,15 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
 
         val bus = connection.messageBus
         bus?.subscribe(null, listener)
-    }
+    }*/
 
     /** Triggered when a connection is removed; unsubscribes message listeners. */
-    override fun onConnectionRemoved(connection: ServerConnectionSession) {
+    /*override fun onConnectionRemoved(connection: ServerConnectionSession) {
         val listener = messageListeners.remove(connection)
         if (listener != null) {
             connection.messageBus?.unsubscribe(null, listener)
         }
-    }
+    }*/
 
     override fun onBind(intent: Intent): IBinder? {
         super.onBind(intent)
