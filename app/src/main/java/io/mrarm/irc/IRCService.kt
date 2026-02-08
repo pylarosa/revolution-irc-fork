@@ -16,9 +16,7 @@ import androidx.annotation.Keep
 import androidx.core.app.NotificationCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
-import io.mrarm.irc.chatlib.message.MessageListener
 import io.mrarm.irc.connection.ServerConnectionManager
-import io.mrarm.irc.connection.ServerConnectionSession
 import io.mrarm.irc.job.ServerPingScheduler
 import io.mrarm.irc.util.WarningHelper
 import kotlinx.coroutines.launch
@@ -31,22 +29,12 @@ import kotlinx.coroutines.launch
  * persistence even when the app is not in the foreground.
  */
 @Keep
-class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListener {
+class IRCService : LifecycleService() {
 
     private var createdChannel = false
-    private val messageListeners = mutableMapOf<ServerConnectionSession, MessageListener>()
     private var connectivityManager: ConnectivityManager? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
-    override fun onConnectionAdded(connection: ServerConnectionSession) {
-        // NO-OP
-        // Message delivery is now handled by MessageBus subscribers,
-        // not by IRCService.
-    }
-
-    override fun onConnectionRemoved(connection: ServerConnectionSession) {
-        // NO-OP
-    }
 
     /** Called when the service is first created. Initializes managers and listeners. */
     override fun onCreate() {
@@ -56,28 +44,18 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
             ">>> IRC service created, IRCService.oncreate() called"
         )
         WarningHelper.setAppContext(applicationContext)
-
-        val manager = ServerConnectionManager.getInstance(this)
-        manager.connections.forEach { onConnectionAdded(it) }
-        manager.addListener(this)
-
         registerNetworkCallback()
-
         ServerPingScheduler.getInstance(this).startIfEnabled()
     }
 
     /** Cleans up connections, listeners, and schedulers when the service is destroyed. */
     override fun onDestroy() {
+        Log.i(
+            "[FLOW]",
+            ">>> IRC service created, IRCService.onDestroy() called"
+        )
         super.onDestroy()
-
-        if (ServerConnectionManager.hasInstance()) {
-            val manager = ServerConnectionManager.getInstance(this)
-            manager.connections.forEach { onConnectionRemoved(it) }
-            manager.removeListener(this)
-        }
-
         unregisterNetworkCallback()
-
         ServerPingScheduler.getInstance(this).stop()
     }
 
@@ -164,54 +142,6 @@ class IRCService : LifecycleService(), ServerConnectionManager.ConnectionsListen
         }
         return START_STICKY
     }
-
-    /** Called when a message is received on any subscribed connection, via Listener *//*
-    // NOTE WARNING: called on IRC socket thread
-    private fun onMessage(
-        connection: ServerConnectionSession,
-        channel: String?,
-        info: MessageInfo,
-        messageId: MessageId
-    ) {
-        NotificationManager.getInstance().processMessage(this, connection, channel, info, messageId)
-    }*/
-
-    /** Triggered when a new IRC connection is established in the manager. */
-
-    // NOTE Listener execution context
-    // Thread depends on:
-    // - how RoomMessageStorageApi dispatches listeners (INCONSISTENT!)
-   /* override fun onConnectionAdded(connection: ServerConnectionSession) {
-        val listener = MessageListener { channel, info, id ->
-            onMessage(connection, channel, info, id)
-        }
-        messageListeners[connection] = listener
-
-        // NOTE IRCService does NOT listen to ChannelData -> It listens to MessageStorageApi
-        // Effective Pipeline:
-        // Protocol
-        // → ChannelData
-        // → MessageStorageApi
-        // → MessageListener
-        // → IRCService
-        // → NotificationManager
-
-        // This means:
-        // Storage facade is acting as both persistence + bus
-        // tight coupling already exists
-
-
-        val bus = connection.messageBus
-        bus?.subscribe(null, listener)
-    }*/
-
-    /** Triggered when a connection is removed; unsubscribes message listeners. */
-    /*override fun onConnectionRemoved(connection: ServerConnectionSession) {
-        val listener = messageListeners.remove(connection)
-        if (listener != null) {
-            connection.messageBus?.unsubscribe(null, listener)
-        }
-    }*/
 
     override fun onBind(intent: Intent): IBinder? {
         super.onBind(intent)

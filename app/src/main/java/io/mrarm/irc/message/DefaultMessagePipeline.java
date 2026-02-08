@@ -13,11 +13,6 @@ import io.mrarm.irc.storage.db.MessageEntity;
 public class DefaultMessagePipeline implements MessagePipeline {
 
     private final MessagePipelineContext pipelineContext;
-
-    // NOTE:
-    // This bus is intentionally unused at the moment.
-    // It will be used by accept(...) once persistence + emission
-    // are moved here from RoomMessageStorageApi.
     private final MessageBus messageBus;
 
 
