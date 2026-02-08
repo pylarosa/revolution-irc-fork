@@ -17,7 +17,6 @@ import io.mrarm.irc.chatlib.dto.MessageListAfterIdentifier;
 import io.mrarm.irc.chatlib.dto.RoomMessageId;
 import io.mrarm.irc.chatlib.util.SimpleRequestExecutor;
 import io.mrarm.irc.storage.MessageStorageRepository;
-import io.mrarm.irc.storage.db.MessageEntity;
 
 public class RoomMessageStorageApi implements WritableMessageStorageApi {
     private final MessageStorageRepository repo;
@@ -37,28 +36,10 @@ public class RoomMessageStorageApi implements WritableMessageStorageApi {
                                    MessageInfo message,
                                    ResponseCallback<Void> callback,
                                    ResponseErrorCallback errorCallback) {
-        return SimpleRequestExecutor.run(() -> {
-            MessageEntity entity = MessageEntity.from(serverId, channelName, message);
-            long roomId = repo.insertMessage(entity);
-
-            MessageId msgId = new RoomMessageId(roomId);
-
-            synchronized (channelListeners) {
-                List<MessageListener> listeners = channelListeners.get(channelName);
-                if (listeners != null) {
-                    for (MessageListener listener : listeners) {
-                        listener.onMessage(channelName, message, msgId);
-                    }
-                }
-            }
-
-            synchronized (globalListeners) {
-                for (MessageListener listener : globalListeners) {
-                    listener.onMessage(channelName, message, msgId);
-                }
-            }
-            return null;
-        }, callback, errorCallback);
+        throw new UnsupportedOperationException(
+                "RoomMessageStorageApi.addMessage is deprecated. " +
+                        "Use MessagePipeline / MessageSink instead."
+        );
     }
 
     private final MessageId.Parser parser = new RoomMessageId.Parser();
@@ -108,18 +89,7 @@ public class RoomMessageStorageApi implements WritableMessageStorageApi {
                                                  ResponseCallback<Void> callback,
                                                  ResponseErrorCallback errorCallback) {
         return SimpleRequestExecutor.run(() -> {
-            if (channelName == null) {
-                synchronized (globalListeners) {
-                    globalListeners.add(listener);
-                }
-            } else {
-                synchronized (channelListeners) {
-                    channelListeners
-                            .computeIfAbsent(channelName, k -> new ArrayList<>())
-                            .add(listener);
-                }
-            }
-            return null;
+            throw new UnsupportedOperationException("RoomMessageStorageApi.deleteMessages: use Room repository instead");
         }, callback, errorCallback);
     }
 
@@ -129,22 +99,7 @@ public class RoomMessageStorageApi implements WritableMessageStorageApi {
                                                    ResponseCallback<Void> callback,
                                                    ResponseErrorCallback errorCallback) {
         return SimpleRequestExecutor.run(() -> {
-            if (channelName == null) {
-                synchronized (globalListeners) {
-                    globalListeners.remove(listener);
-                }
-            } else {
-                synchronized (channelListeners) {
-                    List<MessageListener> listeners = channelListeners.get(channelName);
-                    if (listeners != null) {
-                        listeners.remove(listener);
-                        if (listeners.isEmpty()) {
-                            channelListeners.remove(channelName);
-                        }
-                    }
-                }
-            }
-            return null;
+            throw new UnsupportedOperationException("RoomMessageStorageApi.deleteMessages: use Room repository instead");
         }, callback, errorCallback);
     }
 }

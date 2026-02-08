@@ -41,6 +41,15 @@ public class MessageInfo {
     private String message;
     private MessageType type;
     private BatchInfo batch;
+    private boolean playback;
+
+    public boolean isPlayback() {
+        return playback;
+    }
+
+    public void setPlayback(boolean playback) {
+        this.playback = playback;
+    }
 
     public MessageInfo(MessageSenderInfo sender, Date date, String message, MessageType type) {
         this.sender = sender;

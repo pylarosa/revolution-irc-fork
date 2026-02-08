@@ -4,11 +4,15 @@ package io.mrarm.irc.storage.db;
 import static io.mrarm.irc.storage.MessageStorageHelper.serializeExtraData;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.room.ColumnInfo;
 import androidx.room.Entity;
 import androidx.room.Index;
 import androidx.room.PrimaryKey;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.UUID;
 
 import io.mrarm.irc.chatlib.dto.MessageInfo;
@@ -54,6 +58,10 @@ public class MessageEntity {
     @ColumnInfo(name = "extra_json")
     public String extraJson;
 
+    @ColumnInfo(name = "dedupe_key")
+    @Nullable
+    public String dedupeKey;
+
     @ColumnInfo(name = "aprox_row_size")
     @NonNull
     public Long aproxRowSize;
@@ -70,8 +78,48 @@ public class MessageEntity {
         e.sender = (info.getSender() != null ? info.getSender().getNick() : null);
         e.kind = isChannel ? MessageKind.CHANNEL : MessageKind.PRIVATE;
         e.extraJson = serializeExtraData(info);
+        e.dedupeKey = info.isPlayback() ? computeDedupeKey(serverId, channel, info) : null;
         e.aproxRowSize = computeSize(e);
         return e;
+    }
+
+    private static String computeDedupeKey(UUID serverId, String channel, MessageInfo msg) {
+
+        String sender = msg.getSender() != null
+                ? msg.getSender().getNick().trim()
+                : "";
+
+        String text = msg.getMessage() != null
+                ? msg.getMessage().trim()
+                : "";
+
+        long bucket = msg.getDate().getTime() / 60_000;
+
+        return sha1(
+                serverId + "|" +
+                channel + "|" +
+                sender + "|" +
+                text + "|" +
+                bucket
+        );
+    }
+
+    public static String sha1(String input) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-1");
+            byte[] digest = md.digest(input.getBytes(StandardCharsets.UTF_8));
+            return toHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-1 not available", e);
+        }
+    }
+
+    private static String toHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 
     private static long computeSize(MessageEntity e) {
@@ -80,6 +128,7 @@ public class MessageEntity {
         // Strings are UTF-16 in memory, but stored as UTF-8 in SQLite.
         size += utf8Length(e.text);
         size += utf8Length(e.channel);
+        size += utf8Length(e.dedupeKey);
 
         if (e.sender != null) {
             size += utf8Length(e.sender);
