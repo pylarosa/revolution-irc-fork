@@ -3,6 +3,7 @@ package io.mrarm.irc;
 import android.app.Activity;
 import android.app.Application;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.util.Log;
 
 import androidx.annotation.Keep;
@@ -103,9 +104,19 @@ public class IRCApplication extends Application implements Application.ActivityL
     public void onCreate() {
         super.onCreate();
         Log.i("[FLOW]", ">>> Application starting, IRCApplication.onCreated() called");
+
+        long t = SystemClock.elapsedRealtime();
         SettingsHelper.getInstance(this);
+        Log.i("[FLOW]", "SettingsHelper took " + (SystemClock.elapsedRealtime() - t));
+
+        t = SystemClock.elapsedRealtime();
         NotificationManager.createDefaultChannels(this);
+        Log.i("[FLOW]", "Notif channels took " + (SystemClock.elapsedRealtime() - t));
+
+        t = SystemClock.elapsedRealtime();
         registerActivityLifecycleCallbacks(this);
+        Log.i("[FLOW]", "Register Activity Lifecycles took " + (SystemClock.elapsedRealtime() - t));
+
     }
 
     /**

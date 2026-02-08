@@ -1,5 +1,7 @@
 package io.mrarm.irc.chatlib.irc.cap;
 
+import android.util.Log;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -40,6 +42,10 @@ public class CapabilityManager {
     public <T extends Capability> T getCapability(Class<? extends T> type) {
         for (List<Capability> cl : supportedCapabilities.values()) {
             for (Capability c : cl) {
+                for (String cName : c.getNames()) {
+                    Log.i("CapabilityManager", cName);
+                }
+
                 if (c.getClass().equals(type))
                     return (T) c;
             }

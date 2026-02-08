@@ -17,6 +17,7 @@ import io.mrarm.irc.chatlib.dto.ModeList;
 import io.mrarm.irc.chatlib.dto.NickPrefixList;
 import io.mrarm.irc.chatlib.dto.NickWithPrefix;
 import io.mrarm.irc.chatlib.irc.cap.Capability;
+import io.mrarm.irc.message.MessageSink;
 
 /**
  * MESSAGE PIPELINE (live delivery)
@@ -291,7 +292,7 @@ public class ChannelData {
             Set<String> s = modesList.get(flag);
             if (s != null) {
                 s.remove(val);
-                if (s.size() == 0)
+                if (s.isEmpty())
                     modesList.remove(flag);
             }
         }
@@ -340,12 +341,10 @@ public class ChannelData {
     public void addMessage(MessageInfo message) {
         if (!connection.getMessageFilterList().filterMessage(connection, name, message))
             return;
-        try {
 
-            //NOTE Message persistence
-            connection.getMessageStorageApi().addMessage(name, message, null, null).get();
-        } catch (ExecutionException | InterruptedException e) {
-            throw new RuntimeException(e);
+        MessageSink sink = connection.getMessageSink();
+        if (sink != null) {
+            sink.accept(name, message);
         }
     }
 

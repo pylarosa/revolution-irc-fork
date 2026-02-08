@@ -10,6 +10,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
 import android.provider.OpenableColumns;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -123,6 +124,7 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        Log.i("[MAIN ACTIVITY]", "onCreate() ");
         ServerConnectionManager.getInstance(this);
         WarningHelper.setAppContext(getApplicationContext());
 

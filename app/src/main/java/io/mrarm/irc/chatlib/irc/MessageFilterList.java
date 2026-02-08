@@ -31,4 +31,20 @@ public class MessageFilterList {
         return true;
     }
 
+    public boolean filterMessageExcept(ServerConnectionData connection,
+                                       String channel,
+                                       MessageInfo message,
+                                       MessageFilter excludedFilter) {
+        synchronized (mMessageFilters) {
+            for (MessageFilter filter : mMessageFilters) {
+                if (filter == excludedFilter) {
+                    continue;
+                }
+                if (!filter.filter(connection, channel, message))
+                    return false;
+            }
+        }
+        return true;
+    }
+
 }
