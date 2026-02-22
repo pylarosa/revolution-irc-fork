@@ -26,6 +26,7 @@ import io.mrarm.irc.ChannelNotificationManager;
 import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.NotificationManager;
 import io.mrarm.irc.R;
+import io.mrarm.irc.app.navigation.NavigationHost;
 import io.mrarm.irc.chatlib.dto.NickWithPrefix;
 import io.mrarm.irc.config.ChatSettings;
 import io.mrarm.irc.config.NickAutocompleteSettings;
@@ -78,7 +79,9 @@ public class ChatFragment extends Fragment implements
         String requestedMessageId = getArguments().getString(ARG_MESSAGE_ID);
 
         if (mConnectionInfo == null) {
-            ((MainActivity) getActivity()).openManageServers();
+            if (requireActivity() instanceof NavigationHost host) {
+                host.getNavigator().openManageServers();
+            }
             return null;
         }
 

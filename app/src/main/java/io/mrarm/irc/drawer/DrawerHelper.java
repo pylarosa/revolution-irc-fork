@@ -15,10 +15,10 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.List;
 
-import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.NotificationManager;
 import io.mrarm.irc.R;
 import io.mrarm.irc.SettingsActivity;
+import io.mrarm.irc.app.navigation.NavigationHost;
 import io.mrarm.irc.chatlib.irc.ServerConnectionApi;
 import io.mrarm.irc.config.AppSettings;
 import io.mrarm.irc.config.SettingsHelper;
@@ -42,9 +42,11 @@ public class DrawerHelper implements ServerConnectionManager.ConnectionsListener
     private DrawerMenuItem mManageServersItem;
     private DrawerMenuItem mSettingsItem;
     private boolean mHasRegisteredListeners = false;
+    private final NavigationHost mNavigationHost;
 
-    public DrawerHelper(Activity activity) {
+    public DrawerHelper(Activity activity, NavigationHost navigationHost) {
         mActivity = activity;
+        mNavigationHost = navigationHost;
         mDrawerLayout = activity.findViewById(R.id.drawer_layout);
         mRecyclerView = activity.findViewById(R.id.nav_list);
         mLayoutManager = new LinearLayoutManager(activity);
@@ -57,8 +59,9 @@ public class DrawerHelper implements ServerConnectionManager.ConnectionsListener
 
         mSearchItem = new DrawerMenuItem(r.getString(R.string.action_search), R.drawable.ic_search_white);
         mSearchItem.setOnClickListener((View view) -> {
-            ChannelSearchDialog dialog = new ChannelSearchDialog(activity,
-                    ((MainActivity) activity)::openServer);
+            ChannelSearchDialog dialog;
+            dialog = new ChannelSearchDialog(activity,
+                    (server, channel) -> mNavigationHost.getNavigator().openServer(server, channel));
             dialog.show();
             mDrawerLayout.closeDrawers();
         });

@@ -18,10 +18,13 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
+import io.mrarm.irc.app.navigation.DrawerToolbarHost;
+import io.mrarm.irc.app.navigation.NavigationHost;
 import io.mrarm.irc.config.ServerConfigData;
 import io.mrarm.irc.config.ServerConfigManager;
 import io.mrarm.irc.connection.ServerConnectionManager;
 import io.mrarm.irc.connection.ServerConnectionSession;
+import io.mrarm.irc.dialog.DialogHost;
 import io.mrarm.irc.dialog.MenuBottomSheetDialog;
 
 @Keep
@@ -40,7 +43,7 @@ public class ServerListFragment extends Fragment {
         Toolbar toolbar = rootView.findViewById(R.id.toolbar);
         ((AppCompatActivity) getActivity()).setSupportActionBar(toolbar);
 
-        ((MainActivity) getActivity()).addActionBarDrawerToggle(toolbar);
+        ((DrawerToolbarHost) requireActivity()).addDrawerToggle(toolbar);
 
         FloatingActionButton addFab = rootView.findViewById(R.id.fab);
         addFab.setOnClickListener((View view) -> {
@@ -53,15 +56,17 @@ public class ServerListFragment extends Fragment {
         mAdapter = new ServerListAdapter(getActivity());
         recyclerView.setAdapter(mAdapter);
         mAdapter.setActiveServerClickListener((ServerConnectionSession info) -> {
-            ((MainActivity) getActivity()).openServer(info, null, null, true);
+            NavigationHost host = (NavigationHost) requireActivity();
+            host.getNavigator().openServer(info, null, null);
         });
         mAdapter.setActiveServerLongClickListener((ServerConnectionSession info) -> {
             MenuBottomSheetDialog menu = new MenuBottomSheetDialog(getContext());
             menu.addItem(R.string.action_open, R.drawable.ic_open_in_new
                     , (MenuBottomSheetDialog.Item item) -> {
-                ((MainActivity) getActivity()).openServer(info, null);
-                return true;
-            });
+                        NavigationHost host = (NavigationHost) requireActivity();
+                        host.getNavigator().openServer(info, null);
+                        return true;
+                    });
             menu.addItem(R.string.action_edit, R.drawable.ic_edit, (MenuBottomSheetDialog.Item item) -> {
                 ServerConfigData data = ServerConfigManager.getInstance(getContext()).findServer(info.getUUID());
                 startActivity(EditServerActivity.getLaunchIntent(getContext(), data));
@@ -78,7 +83,7 @@ public class ServerListFragment extends Fragment {
                 return true;
             });
             menu.show();
-            ((MainActivity) getActivity()).setFragmentDialog(menu);
+            ((DialogHost) requireActivity()).setFragmentDialog(menu);
         });
         mAdapter.setInactiveServerClickListener((ServerConfigData data) -> {
             ServerConnectionManager.getInstance(getContext()).tryCreateConnection(data, getActivity());
@@ -105,11 +110,11 @@ public class ServerListFragment extends Fragment {
                     ServerConfigManager.getInstance(getContext()).deleteServer(data);
                 });
                 builder2.setNegativeButton(R.string.action_cancel, null);
-                ((MainActivity) getActivity()).setFragmentDialog(builder2.show());
+                ((DialogHost) requireActivity()).setFragmentDialog(builder2.show());
                 return true;
             });
             menu.show();
-            ((MainActivity) getActivity()).setFragmentDialog(menu);
+            ((DialogHost) requireActivity()).setFragmentDialog(menu);
         });
         mAdapter.registerListeners();
 

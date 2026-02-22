@@ -1,6 +1,5 @@
 package io.mrarm.irc.chat;
 
-import android.app.Dialog;
 import android.graphics.Color;
 import android.text.SpannableString;
 import android.text.Spanned;
@@ -17,11 +16,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.Date;
 import java.util.List;
 
-import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.R;
 import io.mrarm.irc.chatlib.dto.NickWithPrefix;
 import io.mrarm.irc.connection.ServerConnectionSession;
-import io.mrarm.irc.dialog.UserBottomSheetDialog;
 import io.mrarm.irc.util.IRCColorUtils;
 import io.mrarm.irc.util.LinkHelper;
 import io.mrarm.irc.util.SpannableStringHelper;
@@ -38,8 +35,14 @@ public class ChannelInfoAdapter extends RecyclerView.Adapter {
     private String mTopicSetBy;
     private Date mTopicSetOn;
     private List<NickWithPrefix> mMembers;
+    private final OnMemberClickListener mMemberClickListener;
 
-    public ChannelInfoAdapter() {
+    public ChannelInfoAdapter(OnMemberClickListener listener) {
+        mMemberClickListener = listener;
+    }
+
+    public interface OnMemberClickListener {
+        void onMemberClick(ServerConnectionSession connection, String nick);
     }
 
     public void setData(ServerConnectionSession connection, String topic, String topicSetBy,
@@ -69,7 +72,7 @@ public class ChannelInfoAdapter extends RecyclerView.Adapter {
         } else { // TYPE_MEMBER
             View view = LayoutInflater.from(viewGroup.getContext())
                     .inflate(R.layout.chat_member, viewGroup, false);
-            return new MemberHolder(view);
+            return new MemberHolder(view, mMemberClickListener);
         }
     }
 
@@ -152,7 +155,7 @@ public class ChannelInfoAdapter extends RecyclerView.Adapter {
             if (topicSetBy != null && topicSetOn != null) {
                 SpannableString topicSetByColored = new SpannableString(topicSetBy);
                 topicSetByColored.setSpan(new ForegroundColorSpan(IRCColorUtils.getNickColor(
-                        topicInfoTextView.getContext(), topicSetBy)), 0, topicSetBy.length(),
+                                topicInfoTextView.getContext(), topicSetBy)), 0, topicSetBy.length(),
                         Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
                 String topicSetOnStr = DateUtils.formatDateTime(topicInfoTextView.getContext(),
@@ -175,17 +178,19 @@ public class ChannelInfoAdapter extends RecyclerView.Adapter {
 
         private ServerConnectionSession mConnection;
         private TextView mText;
+        private final OnMemberClickListener mListener;
 
-        public MemberHolder(View v) {
+        public MemberHolder(View v, OnMemberClickListener listener) {
             super(v);
+            mListener = listener;
             mText = v.findViewById(R.id.chat_member);
-            v.setOnClickListener((View view) -> {
-                UserBottomSheetDialog dialog = new UserBottomSheetDialog(view.getContext());
-                dialog.setConnection(mConnection);
-                dialog.requestData((String) mText.getTag(), mConnection.getApiInstance());
-                Dialog d = dialog.show();
-                if (view.getContext() instanceof MainActivity)
-                    ((MainActivity) view.getContext()).setFragmentDialog(d);
+            v.setOnClickListener(view -> {
+                if (mListener != null) {
+                    mListener.onMemberClick(
+                            mConnection,
+                            (String) mText.getTag()
+                    );
+                }
             });
         }
 
