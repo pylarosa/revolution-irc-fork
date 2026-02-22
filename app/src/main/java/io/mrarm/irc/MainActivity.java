@@ -5,11 +5,7 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.Configuration;
-import android.database.Cursor;
-import android.net.Uri;
 import android.os.Bundle;
-import android.os.ParcelFileDescriptor;
-import android.provider.OpenableColumns;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -18,9 +14,10 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
-import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -29,34 +26,38 @@ import androidx.appcompat.widget.Toolbar;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.fragment.app.Fragment;
-import androidx.fragment.app.FragmentTransaction;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.appbar.AppBarLayout;
 import com.google.android.material.tabs.TabLayout;
 
-import java.io.FileInputStream;
-import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 
+import io.mrarm.irc.app.interaction.ChatOptionsActionHandler;
+import io.mrarm.irc.app.menu.ChatMenuApplier;
+import io.mrarm.irc.app.menu.ChatMenuState;
+import io.mrarm.irc.app.menu.ChatMenuStateResolver;
+import io.mrarm.irc.app.navigation.DrawerToolbarHost;
+import io.mrarm.irc.app.navigation.MainNavigator;
+import io.mrarm.irc.app.navigation.NavigationHost;
 import io.mrarm.irc.chat.ChannelInfoAdapter;
 import io.mrarm.irc.chat.ChatFragment;
 import io.mrarm.irc.chatlib.ChatApi;
 import io.mrarm.irc.chatlib.dto.NickWithPrefix;
-import io.mrarm.irc.chatlib.irc.ServerConnectionApi;
-import io.mrarm.irc.chatlib.irc.dcc.DCCServer;
-import io.mrarm.irc.chatlib.irc.dcc.DCCUtils;
 import io.mrarm.irc.config.AppSettings;
-import io.mrarm.irc.config.ChatSettings;
 import io.mrarm.irc.connection.ServerConnectionManager;
 import io.mrarm.irc.connection.ServerConnectionSession;
+import io.mrarm.irc.dialog.DialogHost;
+import io.mrarm.irc.dialog.MenuBottomSheetDialog;
+import io.mrarm.irc.dialog.UserBottomSheetDialog;
 import io.mrarm.irc.dialog.UserSearchDialog;
 import io.mrarm.irc.drawer.DrawerHelper;
+import io.mrarm.irc.util.LinkHelper;
 import io.mrarm.irc.util.NightModeRecreateHelper;
 import io.mrarm.irc.util.StyledAttributesHelper;
 import io.mrarm.irc.util.WarningHelper;
@@ -75,16 +76,19 @@ import io.mrarm.irc.view.LockableDrawerLayout;
 // - extract DCC-related UI flows into a dedicated component
 // - keep MainActivity focused on lifecycle + high-level orchestration
 
-
 @Keep
-public class MainActivity extends ThemedActivity implements IRCApplication.ExitCallback {
+public class MainActivity extends ThemedActivity
+        implements IRCApplication.ExitCallback,
+        MainNavigator.Host,
+        NavigationHost,
+        DrawerToolbarHost,
+        DialogHost {
 
     public static final String ARG_SERVER_UUID = "server_uuid";
     public static final String ARG_CHANNEL_NAME = "channel";
     public static final String ARG_MESSAGE_ID = "message_id";
     public static final String ARG_MANAGE_SERVERS = "manage_servers";
 
-    private static final int REQUEST_CODE_PICK_FILE_DCC = 100;
     private static final int REQUEST_CODE_DCC_FOLDER_PERMISSION = 101;
     private static final int REQUEST_CODE_DCC_STORAGE_PERMISSION = 102;
 
@@ -93,13 +97,30 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
     private DrawerHelper mDrawerHelper;
     private Toolbar mToolbar;
     private View mFakeToolbar;
-    private boolean mBackReturnToServerList;
     private Dialog mCurrentDialog;
     private ChannelInfoAdapter mChannelInfoAdapter;
     private boolean mAppExiting;
+    private MainNavigator mNavigator;
+    private final ChatMenuStateResolver mMenuResolver = new ChatMenuStateResolver();
+    private final ChatMenuApplier mMenuApplier = new ChatMenuApplier();
+    private ChatOptionsActionHandler mChatActions;
+
     private final DCCManager.ActivityDialogHandler mDCCDialogHandler =
             new DCCManager.ActivityDialogHandler(this, REQUEST_CODE_DCC_FOLDER_PERMISSION,
                     REQUEST_CODE_DCC_STORAGE_PERMISSION);
+
+    private DCCCoordinator dccCoordinator;
+    private ActivityResultLauncher<String> dccFilePicker;
+
+    @Override
+    public MainNavigator getNavigator() {
+        return mNavigator;
+    }
+
+    @Override
+    public void addDrawerToggle(Toolbar toolbar) {
+        addActionBarDrawerToggle(toolbar);
+    }
 
     public static Intent getLaunchIntent(Context context, ServerConnectionSession server, String channel, String messageId) {
         Intent intent = new Intent(context, MainActivity.class);
@@ -116,89 +137,248 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
         return getLaunchIntent(context, server, channel, null);
     }
 
-    public static Intent getLaunchIntentForManageServers(Context context) {
-        Intent intent = new Intent(context, MainActivity.class);
-        intent.putExtra(ARG_MANAGE_SERVERS, true);
-        return intent;
-    }
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         Log.i("[MAIN ACTIVITY]", "onCreate() ");
+        super.onCreate(savedInstanceState);
+
+        setContentView(R.layout.activity_main);
         ServerConnectionManager.getInstance(this);
         WarningHelper.setAppContext(getApplicationContext());
 
-        mAppExiting = false;
-        ((IRCApplication) getApplication()).addExitCallback(this);
+        initializeActivityCore();
+        setupDrawer();
+        setupNavigator();
+        setupGlobalLinkHandler();
+        setupDCCHandlers();
+        setupChatActions();
+        setupChannelInfoAdapter();
+        setupBackHandling();
 
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        if (savedInstanceState == null) {
+            handleInitialIntent();
+        }
+    }
 
-        mFakeToolbar = findViewById(R.id.fake_toolbar);
+    private void setupDCCHandlers() {
+        dccFilePicker = registerForActivityResult(
+                new ActivityResultContracts.GetContent(),
+                uri -> {
+                    if (uri != null && dccCoordinator != null) dccCoordinator.onFilePicked(uri);
+                }
+        );
 
-        mDrawerLayout = findViewById(R.id.drawer_layout);
-
-        mDrawerHelper = new DrawerHelper(this);
-        mDrawerHelper.registerListeners();
-
-        mDrawerHelper.setChannelClickListener((ServerConnectionSession server, String channel) -> {
-            mDrawerLayout.closeDrawers();
-            Fragment f = getCurrentFragment();
-            if (f instanceof ChatFragment && ((ChatFragment) f).getConnectionInfo() == server)
-                ((ChatFragment) f).setCurrentChannel(channel, null);
-            else
-                openServer(server, channel);
+        dccCoordinator = new DCCCoordinator(new DCCCoordinator.Host() {
+            @Override public Context getContext() { return MainActivity.this; }
+            @Override public ChatFragment getCurrentChat() {
+                Fragment f = getCurrentFragment();
+                return (f instanceof ChatFragment) ? (ChatFragment) f : null;
+            }
+            @Override public ActivityResultLauncher<String> getFilePicker() { return dccFilePicker; }
         });
-        mDrawerHelper.getManageServersItem().setOnClickListener((View v) -> {
-            mDrawerLayout.closeDrawers();
-            openManageServers();
-        });
+    }
 
-        if (AppSettings.isDrawerPinned())
-            mDrawerLayout.setLocked(true);
-
-        mChannelInfoAdapter = new ChannelInfoAdapter();
-        RecyclerView membersRecyclerView = findViewById(R.id.members_list);
-        membersRecyclerView.setLayoutManager(new LinearLayoutManager(this));
-        membersRecyclerView.setAdapter(mChannelInfoAdapter);
-        setChannelInfoDrawerVisible(false);
-
-        if (savedInstanceState != null && savedInstanceState.getString(ARG_SERVER_UUID) != null)
-            return;
-
-        handleIntent(getIntent());
-
+    private void setupBackHandling() {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (mBackReturnToServerList) {
-                    openManageServers();
-                } else {
+                if (!mNavigator.handleBackPressed()) {
                     finish();
                 }
             }
         });
     }
 
-    private void handleIntent(Intent intent) {
-        String serverUUID = intent.getStringExtra(ARG_SERVER_UUID);
-        ServerConnectionSession server = null;
-        if (serverUUID != null)
-            server = ServerConnectionManager.getInstance(this).getConnection(
-                    UUID.fromString(serverUUID));
-        if (server != null) {
-            ChatFragment fragment = openServer(server, intent.getStringExtra(ARG_CHANNEL_NAME),
-                    intent.getStringExtra(ARG_MESSAGE_ID), false);
-            if (Intent.ACTION_SEND.equals(intent.getAction()) &&
-                    "text/plain".equals(intent.getType())) {
-                setFragmentShareText(fragment, intent.getStringExtra(Intent.EXTRA_TEXT));
-            }
-        } else if (intent.getBooleanExtra(ARG_MANAGE_SERVERS, false) ||
-                getCurrentFragment() == null) {
-            openManageServers();
-        } else {
-            mBackReturnToServerList = false;
+    private void handleInitialIntent() {
+        Intent intent = getIntent();
+
+        ChatFragment fragment = mNavigator.handleIntent(
+                intent,
+                uuid -> ServerConnectionManager
+                        .getInstance(this)
+                        .getConnection(UUID.fromString(uuid)),
+                getCurrentFragment(),
+                ARG_SERVER_UUID,
+                ARG_CHANNEL_NAME,
+                ARG_MESSAGE_ID,
+                ARG_MANAGE_SERVERS
+        );
+
+        if (fragment != null
+                && Intent.ACTION_SEND.equals(intent.getAction())
+                && "text/plain".equals(intent.getType())) {
+            setFragmentShareText(fragment, intent.getStringExtra(Intent.EXTRA_TEXT));
         }
+    }
+
+    private void setupChannelInfoAdapter() {
+        mChannelInfoAdapter = new ChannelInfoAdapter((connection, nick) -> {
+
+            UserBottomSheetDialog dialog =
+                    new UserBottomSheetDialog(MainActivity.this);
+
+            dialog.setConnection(connection);
+
+            dialog.setOpenHandler((conn, n) -> mNavigator.openServer(conn, n));
+
+            dialog.requestData(nick, connection.getApiInstance());
+
+            Dialog d = dialog.show();
+            setFragmentDialog(d);
+        });
+        RecyclerView membersRecyclerView = findViewById(R.id.members_list);
+        membersRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        membersRecyclerView.setAdapter(mChannelInfoAdapter);
+        setChannelInfoDrawerVisible(false);
+    }
+
+    private void setupChatActions() {
+        mChatActions = new ChatOptionsActionHandler(new ChatOptionsActionHandler.Host() {
+
+            @Override
+            public boolean isChatScreen() {
+                return getCurrentFragment() instanceof ChatFragment;
+            }
+
+            @Override
+            public void showJoinChannelDialog() {
+                // move nothing yet: just call existing inline code for now
+                MainActivity.this.showJoinChannelDialog();
+            }
+
+            @Override
+            public void showUserSearchDialog() {
+                MainActivity.this.showUserSearchDialog();
+            }
+
+            @Override
+            public void partCurrentChannel() {
+                MainActivity.this.partCurrentChannel();
+            }
+
+            @Override
+            public void pickFileForDccSend() {
+                dccCoordinator.requestFileSend();
+            }
+
+            @Override
+            public void openMembersDrawer() {
+                mDrawerLayout.openDrawer(GravityCompat.END);
+            }
+
+            @Override
+            public void openIgnoreList() {
+                MainActivity.this.openIgnoreList();
+            }
+
+            @Override
+            public void disconnect() {
+                ((ChatFragment) getCurrentFragment()).getConnectionInfo().disconnect();
+            }
+
+            @Override
+            public void disconnectAndClose() {
+                MainActivity.this.disconnectAndClose();
+            }
+
+            @Override
+            public void reconnect() {
+                ((ChatFragment) getCurrentFragment()).getConnectionInfo().connect();
+            }
+
+            @Override
+            public void showFormatBar() {
+                ((ChatFragment) getCurrentFragment()).getSendMessageHelper().setFormatBarVisible(true);
+            }
+
+            @Override
+            public void openDccTransfers() {
+                dccCoordinator.openTransfers();
+            }
+
+            @Override
+            public void openSettings() {
+                startActivity(new Intent(MainActivity.this, SettingsActivity.class));
+            }
+
+            @Override
+            public void requestExit() {
+                ((IRCApplication) getApplication()).requestExit();
+            }
+        });
+    }
+
+    private void setupGlobalLinkHandler() {
+        LinkHelper.setChannelLinkHandler((channel, view) -> {
+
+            if (!(getCurrentFragment() instanceof ChatFragment fragment)) {
+                return;
+            }
+
+            MenuBottomSheetDialog dialog =
+                    new MenuBottomSheetDialog(view.getContext());
+
+            dialog.addHeader(channel);
+
+            dialog.addItem(R.string.action_open,
+                    R.drawable.ic_open_in_new,
+                    item -> {
+
+                        ServerConnectionSession connection =
+                                fragment.getConnectionInfo();
+
+                        List<String> channels = new ArrayList<>();
+                        channels.add(channel);
+
+                        if (connection.hasChannel(channel)) {
+                            mNavigator.openServer(connection, channel);
+                            return true;
+                        }
+
+                        fragment.setAutoOpenChannel(channel);
+                        connection.getApiInstance()
+                                .joinChannels(channels, null, null);
+
+                        return true;
+                    });
+
+            dialog.show();
+            setFragmentDialog(dialog);
+        });
+    }
+
+    private void setupNavigator() {
+        mNavigator = new MainNavigator(
+                getSupportFragmentManager(),
+                R.id.content_frame,
+                mDrawerHelper,
+                this
+        );
+    }
+
+    private void setupDrawer() {
+        mDrawerHelper = new DrawerHelper(this, this);
+        mDrawerHelper.registerListeners();
+
+        mDrawerHelper.setChannelClickListener((ServerConnectionSession server, String channel) -> {
+            mDrawerLayout.closeDrawers();
+            mNavigator.onChannelSelected(server, channel);
+        });
+
+        mDrawerHelper.getManageServersItem().setOnClickListener((View v) -> {
+            mDrawerLayout.closeDrawers();
+            mNavigator.openManageServersSelected();
+        });
+    }
+
+    private void initializeActivityCore() {
+        mAppExiting = false;
+        ((IRCApplication) getApplication()).addExitCallback(this);
+        mFakeToolbar = findViewById(R.id.fake_toolbar);
+        mDrawerLayout = findViewById(R.id.drawer_layout);
+
+        if (AppSettings.isDrawerPinned())
+            mDrawerLayout.setLocked(true);
     }
 
     private void setFragmentShareText(ChatFragment fragment, String text) {
@@ -215,7 +395,7 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
         StyledAttributesHelper ta = StyledAttributesHelper.obtainStyledAttributes(this,
-                new int[] { R.attr.actionBarSize });
+                new int[]{R.attr.actionBarSize});
         ViewGroup.LayoutParams params = mFakeToolbar.getLayoutParams();
         params.height = ta.getDimensionPixelSize(R.attr.actionBarSize, 0);
         mFakeToolbar.setLayoutParams(params);
@@ -246,8 +426,7 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
-        if (getCurrentFragment() instanceof ChatFragment) {
-            ChatFragment chat = ((ChatFragment) getCurrentFragment());
+        if (getCurrentFragment() instanceof ChatFragment chat) {
             outState.putString(ARG_SERVER_UUID, chat.getConnectionInfo().getUUID().toString());
             outState.putString(ARG_CHANNEL_NAME, chat.getCurrentChannel());
         }
@@ -259,7 +438,7 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
         String serverUUID = savedInstanceState.getString(ARG_SERVER_UUID);
         if (serverUUID != null) {
             ServerConnectionSession server = ServerConnectionManager.getInstance(this).getConnection(UUID.fromString(serverUUID));
-            openServer(server, savedInstanceState.getString(ARG_CHANNEL_NAME));
+            mNavigator.openServer(server, savedInstanceState.getString(ARG_CHANNEL_NAME));
         }
     }
 
@@ -282,11 +461,7 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
         super.onResume();
         WarningHelper.setActivity(this);
         mDCCDialogHandler.onResume();
-        if (getCurrentFragment() instanceof ChatFragment && !ServerConnectionManager
-                .getInstance(this).hasConnection(((ChatFragment) getCurrentFragment())
-                        .getConnectionInfo().getUUID())) {
-            openManageServers();
-        }
+        mNavigator.ensureValidConnection(ServerConnectionManager.getInstance(this));
     }
 
     @Override
@@ -299,7 +474,23 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
-        handleIntent(intent);
+        ChatFragment fragment = mNavigator.handleIntent(intent,
+                uuid -> ServerConnectionManager
+                        .getInstance(this)
+                        .getConnection(UUID.fromString(uuid)),
+                getCurrentFragment(),
+                ARG_SERVER_UUID,
+                ARG_CHANNEL_NAME,
+                ARG_MESSAGE_ID,
+                ARG_MANAGE_SERVERS);
+
+        if (fragment != null
+                && Intent.ACTION_SEND.equals(intent.getAction())
+                && "text/plain".equals(intent.getType())) {
+
+            setFragmentShareText(fragment,
+                    intent.getStringExtra(Intent.EXTRA_TEXT));
+        }
     }
 
     @Override
@@ -316,44 +507,6 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
         LockableDrawerLayout.ActionBarDrawerToggle toggle = new LockableDrawerLayout.ActionBarDrawerToggle(
                 toolbar, mDrawerLayout, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
         // mDrawerLayout.addDrawerListener(toggle);
-    }
-
-    public ChatFragment openServer(ServerConnectionSession server, String channel, String messageId,
-                                   boolean fromServerList) {
-        dismissFragmentDialog();
-        setChannelInfoDrawerVisible(false);
-        ChatFragment fragment;
-        if (getCurrentFragment() instanceof ChatFragment &&
-                ((ChatFragment) getCurrentFragment()).getConnectionInfo() == server) {
-            fragment = (ChatFragment) getCurrentFragment();
-            fragment.setCurrentChannel(channel, messageId);
-            setChannelInfoDrawerVisible(false);
-        } else {
-            fragment = ChatFragment.newInstance(server, channel, messageId);
-            getSupportFragmentManager().beginTransaction()
-                    .setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE)
-                    .replace(R.id.content_frame, fragment)
-                    .commit();
-        }
-        mDrawerHelper.setSelectedChannel(server, channel);
-        if (fromServerList)
-            mBackReturnToServerList = true;
-        return fragment;
-    }
-
-    public ChatFragment openServer(ServerConnectionSession server, String channel) {
-        return openServer(server, channel, null, false);
-    }
-
-    public void openManageServers() {
-        dismissFragmentDialog();
-        setChannelInfoDrawerVisible(false);
-        getSupportFragmentManager().beginTransaction()
-                .setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE)
-                .replace(R.id.content_frame, ServerListFragment.newInstance())
-                .commit();
-        mDrawerHelper.setSelectedMenuItem(mDrawerHelper.getManageServersItem());
-        mBackReturnToServerList = false;
     }
 
     public DrawerHelper getDrawerHelper() {
@@ -376,6 +529,7 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
         });
     }
 
+    @Override
     public void dismissFragmentDialog() {
         if (mCurrentDialog != null) {
             InputMethodManager manager = (InputMethodManager) getSystemService(
@@ -397,6 +551,7 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
         setChannelInfoDrawerVisible(topic != null || (members != null && !members.isEmpty()));
     }
 
+    @Override
     public void setChannelInfoDrawerVisible(boolean visible) {
         if (visible) {
             mDrawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_UNLOCKED, GravityCompat.END);
@@ -418,169 +573,85 @@ public class MainActivity extends ThemedActivity implements IRCApplication.ExitC
 
     @Override
     public boolean onPrepareOptionsMenu(Menu menu) {
-        boolean hasChanges = false;
-        if (getCurrentFragment() instanceof ChatFragment) {
-            ChatFragment fragment = ((ChatFragment) getCurrentFragment());
-            ServerConnectionApi api = ((ServerConnectionApi) fragment.getConnectionInfo().getApiInstance());
-            boolean connected = fragment.getConnectionInfo().isConnected();
-            boolean wasConnected = !menu.findItem(R.id.action_reconnect).isVisible();
-            if (connected != wasConnected) {
-                if (connected) {
-                    menu.findItem(R.id.action_reconnect).setVisible(false);
-                    menu.findItem(R.id.action_close).setVisible(false);
-                    menu.findItem(R.id.action_disconnect).setVisible(true);
-                    menu.findItem(R.id.action_disconnect_and_close).setVisible(true);
-                } else {
-                    menu.findItem(R.id.action_reconnect).setVisible(true);
-                    menu.findItem(R.id.action_close).setVisible(true);
-                    menu.findItem(R.id.action_disconnect).setVisible(false);
-                    menu.findItem(R.id.action_disconnect_and_close).setVisible(false);
-                }
-                hasChanges = true;
-            }
-            menu.findItem(R.id.action_members).setVisible(
-                    mDrawerLayout.getDrawerLockMode(GravityCompat.END) != DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
-            if (fragment.getSendMessageHelper().hasSendMessageTextSelection() !=
-                    menu.findItem(R.id.action_format).isVisible()) {
-                menu.findItem(R.id.action_format).setVisible(fragment.getSendMessageHelper()
-                        .hasSendMessageTextSelection());
-                hasChanges = true;
-            }
-            MenuItem partItem = menu.findItem(R.id.action_part_channel);
-            boolean inDirectChat = false;
-            if (fragment.getCurrentChannel() == null) {
-                if (partItem.isVisible())
-                    hasChanges = true;
-                partItem.setVisible(false);
-            } else if (!fragment.getCurrentChannel().isEmpty() && !api.getServerConnectionData()
-                    .getSupportList().getSupportedChannelTypes().contains(fragment.getCurrentChannel().charAt(0))) {
-                if (partItem.isVisible() || !Objects.equals(partItem.getTitle(), getString(R.string.action_close_direct)))
-                    hasChanges = true;
-                partItem.setVisible(true);
-                partItem.setTitle(R.string.action_close_direct);
-                inDirectChat = true;
-            } else {
-                if (partItem.isVisible() || !Objects.equals(partItem.getTitle(), getString(R.string.action_part_channel)))
-                    hasChanges = true;
-                partItem.setVisible(true);
-                partItem.setTitle(R.string.action_part_channel);
-            }
-            boolean wasDccSendVisible = menu.findItem(R.id.action_dcc_send).isVisible();
-            boolean dccSendVisible = ChatSettings.isDccSendVisible() && connected && inDirectChat;
-            if (dccSendVisible != wasDccSendVisible) {
-                menu.findItem(R.id.action_dcc_send).setVisible(dccSendVisible);
-                hasChanges = true;
-            }
+
+        if (!(getCurrentFragment() instanceof ChatFragment fragment)) {
+            return super.onPrepareOptionsMenu(menu);
         }
+
+        boolean membersVisible =
+                mDrawerLayout.getDrawerLockMode(GravityCompat.END)
+                        != DrawerLayout.LOCK_MODE_LOCKED_CLOSED;
+
+        ChatMenuState state = mMenuResolver.resolve(fragment, membersVisible);
+
+        boolean hasChanges = mMenuApplier.apply(menu, state);
+
         return super.onPrepareOptionsMenu(menu) | hasChanges;
     }
 
     @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        int id = item.getItemId();
-        if (id == R.id.action_join_channel) {
-            View v = LayoutInflater.from(this).inflate(R.layout.dialog_chip_edit_text, null);
-            ChipsEditText editText = v.findViewById(R.id.chip_edit_text);
-            AlertDialog dialog = new AlertDialog.Builder(this)
-                    .setTitle(R.string.action_join_channel)
-                    .setView(v)
-                    .setPositiveButton(R.string.action_ok, (DialogInterface d, int which) -> {
-                        editText.clearFocus();
-                        String[] channels = editText.getItems();
-                        if (channels.length == 0)
-                            return;
-                        ChatFragment currentChat = (ChatFragment) getCurrentFragment();
-                        ChatApi api = currentChat.getConnectionInfo().getApiInstance();
-                        currentChat.setAutoOpenChannel(channels[0]);
-                        api.joinChannels(Arrays.asList(channels), null, null);
-                    })
-                    .setNeutralButton(R.string.title_activity_channel_list, (DialogInterface d, int which) -> {
-                        ServerConnectionSession info = ((ChatFragment) getCurrentFragment()).getConnectionInfo();
-                        Intent intent = new Intent(this, ChannelListActivity.class);
-                        intent.putExtra(ChannelListActivity.ARG_SERVER_UUID, info.getUUID().toString());
-                        startActivity(intent);
-                    })
-                    .create();
-            dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
-            dialog.show();
-            dialog.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);
-            setFragmentDialog(dialog);
-        } else if (id == R.id.action_message_user) {
-            UserSearchDialog dialog = new UserSearchDialog(this, ((ChatFragment)
-                    getCurrentFragment()).getConnectionInfo());
-            dialog.show();
-            setFragmentDialog(dialog);
-        } else if (id == R.id.action_part_channel) {
-            ChatApi api = ((ChatFragment) getCurrentFragment()).getConnectionInfo().getApiInstance();
-            String channel = ((ChatFragment) getCurrentFragment()).getCurrentChannel();
-            if (channel != null)
-                api.leaveChannel(channel, AppSettings.getDefaultPartMessage(), null, null);
-        } else if (id == R.id.action_dcc_send) {
-            Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-            intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.setType("*/*");
-            startActivityForResult(intent, REQUEST_CODE_PICK_FILE_DCC);
-        } else if (id == R.id.action_members) {
-            mDrawerLayout.openDrawer(GravityCompat.END);
-        } else if (id == R.id.action_ignore_list) {
-            ServerConnectionSession info = ((ChatFragment) getCurrentFragment()).getConnectionInfo();
-            Intent intent = new Intent(this, IgnoreListActivity.class);
-            intent.putExtra(IgnoreListActivity.ARG_SERVER_UUID, info.getUUID().toString());
-            startActivity(intent);
-        } else if (id == R.id.action_disconnect) {
-            ((ChatFragment) getCurrentFragment()).getConnectionInfo().disconnect();
-        } else if (id == R.id.action_disconnect_and_close || id == R.id.action_close) {
-            ServerConnectionSession info = ((ChatFragment) getCurrentFragment()).getConnectionInfo();
-            info.disconnect();
-            ServerConnectionManager.getInstance(this).removeConnection(info);
-            openManageServers();
-        } else if (id == R.id.action_reconnect) {
-            ((ChatFragment) getCurrentFragment()).getConnectionInfo().connect();
-        } else if (id == R.id.action_format) {
-            ((ChatFragment) getCurrentFragment()).getSendMessageHelper().setFormatBarVisible(true);
-        } else if (id == R.id.action_dcc_transfers) {
-            startActivity(new Intent(this, DCCActivity.class));
-        } else if (id == R.id.action_settings) {
-            startActivity(new Intent(this, SettingsActivity.class));
-        } else if (id == R.id.action_exit) {
-            ((IRCApplication) getApplication()).requestExit();
-        } else {
-            return super.onOptionsItemSelected(item);
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        if (mChatActions != null && mChatActions.handle(item.getItemId())) {
+            return true;
         }
-        return true;
+        return super.onOptionsItemSelected(item);
     }
 
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        if (requestCode == REQUEST_CODE_PICK_FILE_DCC && data != null && data.getData() != null) {
-            Uri uri = data.getData();
-            Cursor cursor = getContentResolver().query(uri, null, null, null, null);
-            int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
-            int sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE);
-            cursor.moveToFirst();
-            String name = DCCUtils.escapeFilename(cursor.getString(nameIndex));
-            long size = cursor.isNull(sizeIndex) ? -1 : cursor.getLong(sizeIndex);
+    private void disconnectAndClose() {
+        ServerConnectionSession info = ((ChatFragment) getCurrentFragment()).getConnectionInfo();
+        info.disconnect();
+        ServerConnectionManager.getInstance(this).removeConnection(info);
+        mNavigator.openManageServers();
+    }
 
-            String channel = ((ChatFragment) getCurrentFragment()).getCurrentChannel();
-            try {
-                ParcelFileDescriptor desc = getContentResolver().openFileDescriptor(uri, "r");
-                if (desc == null)
-                    throw new IOException();
-                if (size == -1)
-                    size = desc.getStatSize();
+    private void openIgnoreList() {
+        ServerConnectionSession info = ((ChatFragment) getCurrentFragment()).getConnectionInfo();
+        Intent intent = new Intent(this, IgnoreListActivity.class);
+        intent.putExtra(IgnoreListActivity.ARG_SERVER_UUID, info.getUUID().toString());
+        startActivity(intent);
+    }
 
-                DCCServer.FileChannelFactory fileFactory = () -> new FileInputStream(
-                        desc.getFileDescriptor()).getChannel().position(0);
-                DCCManager.getInstance(this).startUpload(((ChatFragment) getCurrentFragment())
-                        .getConnectionInfo(), channel, fileFactory, name, size);
-            } catch (IOException e) {
-                Toast.makeText(this, R.string.error_file_open, Toast.LENGTH_SHORT).show();
-                return;
-            }
-            return;
-        }
-        mDCCDialogHandler.onActivityResult(requestCode, resultCode, data);
-        super.onActivityResult(requestCode, resultCode, data);
+    private void partCurrentChannel() {
+        ChatApi api = ((ChatFragment) getCurrentFragment()).getConnectionInfo().getApiInstance();
+        String channel = ((ChatFragment) getCurrentFragment()).getCurrentChannel();
+        if (channel != null)
+            api.leaveChannel(channel, AppSettings.getDefaultPartMessage(), null, null);
+    }
+
+    private void showUserSearchDialog() {
+        UserSearchDialog dialog = new UserSearchDialog(this, ((ChatFragment)
+                getCurrentFragment()).getConnectionInfo(), mNavigator);
+        dialog.show();
+        setFragmentDialog(dialog);
+    }
+
+    private void showJoinChannelDialog() {
+        View v = LayoutInflater.from(this).inflate(R.layout.dialog_chip_edit_text, null);
+        ChipsEditText editText = v.findViewById(R.id.chip_edit_text);
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(R.string.action_join_channel)
+                .setView(v)
+                .setPositiveButton(R.string.action_ok, (DialogInterface d, int which) -> {
+                    editText.clearFocus();
+                    String[] channels = editText.getItems();
+                    if (channels.length == 0)
+                        return;
+                    ChatFragment currentChat = (ChatFragment) getCurrentFragment();
+                    ChatApi api = currentChat.getConnectionInfo().getApiInstance();
+                    currentChat.setAutoOpenChannel(channels[0]);
+                    api.joinChannels(Arrays.asList(channels), null, null);
+                })
+                .setNeutralButton(R.string.title_activity_channel_list, (DialogInterface d, int which) -> {
+                    ServerConnectionSession info = ((ChatFragment) getCurrentFragment()).getConnectionInfo();
+                    Intent intent = new Intent(this, ChannelListActivity.class);
+                    intent.putExtra(ChannelListActivity.ARG_SERVER_UUID, info.getUUID().toString());
+                    startActivity(intent);
+                })
+                .create();
+        dialog.getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);
+        dialog.show();
+        dialog.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);
+        setFragmentDialog(dialog);
     }
 
     @Override

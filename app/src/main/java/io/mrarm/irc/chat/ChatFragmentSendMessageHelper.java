@@ -27,8 +27,8 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior;
 
 import java.util.List;
 
-import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.R;
+import io.mrarm.irc.app.navigation.NavigationHost;
 import io.mrarm.irc.chatlib.dto.NickWithPrefix;
 import io.mrarm.irc.chatlib.dto.WhoisInfo;
 import io.mrarm.irc.chatlib.irc.CommandHandlerList;
@@ -37,6 +37,7 @@ import io.mrarm.irc.chatlib.irc.ServerConnectionApi;
 import io.mrarm.irc.chatlib.irc.handlers.NickCommandHandler;
 import io.mrarm.irc.chatlib.irc.handlers.WhoisCommandHandler;
 import io.mrarm.irc.connection.ServerConnectionSession;
+import io.mrarm.irc.dialog.DialogHost;
 import io.mrarm.irc.dialog.UserBottomSheetDialog;
 import io.mrarm.irc.util.AutoMultilineTextListener;
 import io.mrarm.irc.util.ColoredTextBuilder;
@@ -276,12 +277,19 @@ public class ChatFragmentSendMessageHelper implements SendMessageHelper.Callback
         CommandHandlerList l = connection.getServerConnectionData().getCommandHandlerList();
         if (params[0].equalsIgnoreCase("WHOIS")) {
             l.getHandler(WhoisCommandHandler.class).onRequested(params.length > 1 ? params[1] : null, (WhoisInfo whoisInfo) -> {
-                mFragment.getActivity().runOnUiThread(() -> {
+                mFragment.requireActivity().runOnUiThread(() -> {
                     UserBottomSheetDialog dialog = new UserBottomSheetDialog(mContext);
                     dialog.setConnection(mFragment.getConnectionInfo());
+                    dialog.setOpenHandler((conn, nick) -> {
+                        NavigationHost host =
+                                (NavigationHost) mFragment.requireActivity();
+                        host.getNavigator().openServer(conn, nick);
+                    });
                     dialog.setData(whoisInfo);
                     Dialog d = dialog.show();
-                    ((MainActivity) mFragment.getActivity()).setFragmentDialog(d);
+                    if (mFragment.requireActivity() instanceof DialogHost host) {
+                        host.setFragmentDialog(d);
+                    }
                 });
             }, (String n, int i, String m) -> {
                 notifyCommandFailed(clientCommand, m);
@@ -289,7 +297,8 @@ public class ChatFragmentSendMessageHelper implements SendMessageHelper.Callback
         } else if (params[0].equalsIgnoreCase("NICK")) {
             if (params.length > 1 && params[1].equals(connection.getServerConnectionData().getUserNick()))
                 return;
-            l.getHandler(NickCommandHandler.class).onRequested(params.length > 1 ? params[1] : null, null, (String n, int i, String m) -> {
+            l.getHandler(NickCommandHandler.class)
+                    .onRequested(params.length > 1 ? params[1] : null, null, (String n, int i, String m) -> {
                 notifyCommandFailed(clientCommand, m);
             });
         } else if (params[0].equalsIgnoreCase("JOIN")) {

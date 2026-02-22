@@ -7,19 +7,21 @@ import androidx.annotation.NonNull;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.R;
+import io.mrarm.irc.app.navigation.MainNavigator;
 import io.mrarm.irc.connection.ServerConnectionSession;
 import io.mrarm.irc.view.ListSearchView;
 
 public class UserSearchDialog extends SearchDialog {
 
-    private ServerConnectionSession mConnection;
-    private ListSearchView.SimpleSuggestionsAdapter mAdapter;
+    private final ServerConnectionSession mConnection;
+    private final ListSearchView.SimpleSuggestionsAdapter mAdapter;
+    private final MainNavigator navigator;
 
-    public UserSearchDialog(@NonNull Context context, ServerConnectionSession connection) {
+    public UserSearchDialog(@NonNull Context context, ServerConnectionSession connection, MainNavigator navigator) {
         super(context);
         mConnection = connection;
+        this.navigator = navigator;
         setQueryHint(context.getString(R.string.action_message_user));
         mAdapter = new ListSearchView.SimpleSuggestionsAdapter();
         mAdapter.setItemClickListener((int index, CharSequence value) -> {
@@ -33,9 +35,7 @@ public class UserSearchDialog extends SearchDialog {
         List<String> channels = new ArrayList<>();
         channels.add(query);
         mConnection.getApiInstance().joinChannels(channels, (Void v) -> {
-            getOwnerActivity().runOnUiThread(() -> {
-                ((MainActivity) getOwnerActivity()).openServer(mConnection, query);
-            });
+            getOwnerActivity().runOnUiThread(() -> navigator.openServer(mConnection, query));
         }, null);
         cancel();
     }

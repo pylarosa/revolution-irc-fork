@@ -16,12 +16,12 @@ import androidx.recyclerview.widget.RecyclerView;
 import java.util.HashSet;
 import java.util.Set;
 
-import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.R;
 import io.mrarm.irc.chatlib.dto.StatusMessageInfo;
 import io.mrarm.irc.chatlib.dto.StatusMessageList;
 import io.mrarm.irc.chatlib.dto.WhoisStatusMessageInfo;
 import io.mrarm.irc.connection.ServerConnectionSession;
+import io.mrarm.irc.dialog.DialogHost;
 import io.mrarm.irc.dialog.UserBottomSheetDialog;
 import io.mrarm.irc.util.AlignToPointSpan;
 import io.mrarm.irc.util.IRCColorUtils;
@@ -156,8 +156,10 @@ public class ServerStatusMessagesAdapter extends RecyclerView.Adapter<RecyclerVi
                     dialog.setConnection(mConnection);
                     dialog.setData(((WhoisStatusMessageInfo) msg).getWhoisInfo());
                     Dialog d = dialog.show();
-                    if (view.getContext() instanceof MainActivity)
-                        ((MainActivity) view.getContext()).setFragmentDialog(d);
+                    Context ctx = view.getContext();
+                    if (ctx instanceof DialogHost host) {
+                        host.setFragmentDialog(d);
+                    }
                 } else {
                     mAdapter.toggleExpandItem(mPosition);
                 }

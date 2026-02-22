@@ -1,7 +1,5 @@
 package io.mrarm.irc.util;
 
-import android.content.Context;
-import android.content.ContextWrapper;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.Spanned;
@@ -10,20 +8,22 @@ import android.text.style.URLSpan;
 import android.text.util.Linkify;
 import android.view.View;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import io.mrarm.irc.MainActivity;
-import io.mrarm.irc.R;
-import io.mrarm.irc.chat.ChatFragment;
-import io.mrarm.irc.connection.ServerConnectionSession;
-import io.mrarm.irc.dialog.MenuBottomSheetDialog;
 
 public class LinkHelper {
 
     private static final Pattern sChannelLinksPattern = Pattern.compile("(^| )(#[^ ,\u0007]+)");
+
+    public interface ChannelLinkHandler {
+        void onChannelClicked(String channel, View view);
+    }
+
+    private static ChannelLinkHandler sChannelLinkHandler;
+
+    public static void setChannelLinkHandler(ChannelLinkHandler handler) {
+        sChannelLinkHandler = handler;
+    }
 
     public static CharSequence addLinks(CharSequence spannable) {
         if (!(spannable instanceof Spannable))
@@ -49,34 +49,11 @@ public class LinkHelper {
             mChannel = channel;
         }
 
-        private MainActivity findActivity(Context ctx) {
-            if (ctx instanceof MainActivity)
-                return (MainActivity) ctx;
-            if (ctx instanceof ContextWrapper)
-                return findActivity(((ContextWrapper) ctx).getBaseContext());
-            return null;
-        }
-
         @Override
         public void onClick(View view) {
-            MainActivity activity = findActivity(view.getContext());
-            MenuBottomSheetDialog dialog = new MenuBottomSheetDialog(view.getContext());
-            dialog.addHeader(mChannel);
-            dialog.addItem(R.string.action_open, R.drawable.ic_open_in_new, (MenuBottomSheetDialog.Item item) -> {
-                ChatFragment fragment = (ChatFragment) activity.getCurrentFragment();
-                List<String> channels = new ArrayList<>();
-                channels.add(mChannel);
-                ServerConnectionSession connection = fragment.getConnectionInfo();
-                if (connection.hasChannel(mChannel)) {
-                    activity.openServer(connection, mChannel);
-                    return true;
-                }
-                fragment.setAutoOpenChannel(mChannel);
-                connection.getApiInstance().joinChannels(channels, null, null);
-                return true;
-            });
-            dialog.show();
-            activity.setFragmentDialog(dialog);
+            if (sChannelLinkHandler != null) {
+                sChannelLinkHandler.onChannelClicked(mChannel, view);
+            }
         }
 
     }

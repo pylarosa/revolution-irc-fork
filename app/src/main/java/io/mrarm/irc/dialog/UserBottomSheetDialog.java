@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import io.mrarm.irc.MainActivity;
 import io.mrarm.irc.R;
 import io.mrarm.irc.chatlib.ChatApi;
 import io.mrarm.irc.chatlib.dto.WhoisInfo;
@@ -44,9 +43,18 @@ public class UserBottomSheetDialog {
     private List<Pair<String, String>> mEntries = new ArrayList<>();
 
     private HeaderHelper mHeader;
+    private OnOpenPrivateChat mOpenHandler;
 
     public UserBottomSheetDialog(Context context) {
         mContext = context;
+    }
+
+    public interface OnOpenPrivateChat {
+        void open(ServerConnectionSession connection, String nick);
+    }
+
+    public void setOpenHandler(OnOpenPrivateChat handler) {
+        mOpenHandler = handler;
     }
 
     public void setConnection(ServerConnectionSession connection) {
@@ -154,8 +162,8 @@ public class UserBottomSheetDialog {
             l.add(mNick);
             mConnection.getApiInstance().joinChannels(l, (Void vo) -> {
                 view.post(() -> {
-                    if (mContext instanceof MainActivity)
-                        ((MainActivity) mContext).openServer(mConnection, mNick);
+                    if (mOpenHandler != null)
+                        mOpenHandler.open(mConnection, mNick);
                     mDialog.cancel();
                 });
             }, null);
