@@ -1,5 +1,7 @@
 package io.mrarm.irc.chatlib.irc;
 
+import android.util.Log;
+
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.List;
@@ -42,6 +44,7 @@ public class ErrorCommandHandler implements CommandHandler {
     }
 
     public boolean canHandle(String command) {
+        Log.d("[ERROR COMMAND HANDLER]", "canHandle() " + command);
         if (command.length() != 3)
             return false;
         int cmdId;

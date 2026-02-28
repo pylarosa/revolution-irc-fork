@@ -1,5 +1,7 @@
 package io.mrarm.irc.chatlib.irc.handlers;
 
+import android.util.Log;
+
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +55,7 @@ public class MessageCommandHandler implements CommandHandler {
     public void handle(ServerConnectionData connection, MessagePrefix sender, String command, List<String> params,
                        Map<String, String> tags)
             throws InvalidMessageException {
+        Log.d("[MESSAGE COMMAND HANDLER]", "handle() " + command + " " + sender);
         try {
             MessageInfo.MessageType type = (command.equals("NOTICE") ? MessageInfo.MessageType.NOTICE :
                     MessageInfo.MessageType.NORMAL);
@@ -112,10 +115,12 @@ public class MessageCommandHandler implements CommandHandler {
     }
 
     private void processCtcp(ServerConnectionData connection, MessagePrefix sender, UUID userUUID, String[] targetChannels, String data, boolean notice, Map<String, String> tags) throws InterruptedException, ExecutionException, InvalidMessageException {
+        Log.d("[MESSAGE COMMAND HANDLER]", "processCtcp() " + data);
         int iof = data.indexOf(' ');
         String command = iof == -1 ? data : data.substring(0, iof);
         String args = data.substring(iof + 1);
         if (command.equals("ACTION")) {
+            Log.d("[MESSAGE COMMAND HANDLER]", "processCtcp() " + command);
             for (String channel : targetChannels) {
                 ChannelData channelData = getChannelData(connection, sender, channel);
                 if (channelData == null)
@@ -123,6 +128,7 @@ public class MessageCommandHandler implements CommandHandler {
                 channelData.addMessage(new MessageInfo.Builder(sender.toSenderInfo(userUUID, channelData), args, MessageInfo.MessageType.ME), tags);
             }
         } else if (command.equals("PING") && !notice) {
+            Log.d("[MESSAGE COMMAND HANDLER]", "processCtcp() " + command);
             if (!rateLimitCtcpCommand() || args.length() > 32)
                 return;
             for (int i = 0; i < args.length(); i++) {
@@ -132,11 +138,13 @@ public class MessageCommandHandler implements CommandHandler {
             connection.getServerStatusData().addMessage(new StatusMessageInfo(sender.getNick(), new Date(), StatusMessageInfo.MessageType.CTCP_PING, null));
             connection.getApi().sendNotice(sender.getNick(), "\01PING " + args + "\01", null, null);
         } else if (command.equals("VERSION") && !notice) {
+            Log.d("[MESSAGE COMMAND HANDLER]", "processCtcp() " + command);
             if (!rateLimitCtcpCommand())
                 return;
             connection.getServerStatusData().addMessage(new StatusMessageInfo(sender.getNick(), new Date(), StatusMessageInfo.MessageType.CTCP_VERSION, null));
             connection.getApi().sendNotice(sender.getNick(), "\01VERSION " + ctcpVersionReply + "\01", null, null);
         } else if (command.equals("DCC")) {
+            Log.d("[MESSAGE COMMAND HANDLER]", "processCtcp() " + command);
             if (args.startsWith("RESUME ") && dccServerManager != null && rateLimitCtcpCommand()) {
                 args = args.substring(7);
                 int filenameLen = DCCUtils.getFilenameLength(args);
@@ -191,6 +199,7 @@ public class MessageCommandHandler implements CommandHandler {
                 dccClientManager.onFileOffered(connection, sender, filename, ip, port, size);
             }
         }
+        Log.d("[MESSAGE COMMAND HANDLER]", "processCtcp() " + command + "UNHANDLED!");
         // TODO: Implement other CTCP commands
     }
 
@@ -212,7 +221,7 @@ public class MessageCommandHandler implements CommandHandler {
         try {
             return connection.getJoinedChannelData(channel);
         } catch (NoSuchChannelException exception) {
-            if (isDirectMessage || (channel.length() > 0 &&
+            if (isDirectMessage || (!channel.isEmpty() &&
                     !connection.getSupportList().getSupportedChannelTypes().contains(channel.charAt(0)))) {
                 connection.onChannelJoined(channel);
                 try {

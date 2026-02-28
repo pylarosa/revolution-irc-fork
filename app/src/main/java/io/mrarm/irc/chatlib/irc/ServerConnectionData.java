@@ -16,24 +16,34 @@ import io.mrarm.irc.message.MessageBus;
 import io.mrarm.irc.message.MessageSink;
 import io.mrarm.irc.storage.MessageStorageRepository;
 
+// Primary session state (ServerConnectionData + ChannelData) is mutated on the network read thread via command handlers.
 public class ServerConnectionData {
 
-    private ServerConnectionApi api;
+    // Pure logical IRC state
     private String userNick;
     private String userUser;
     private String userHost;
     private final HashMap<String, ChannelData> joinedChannels = new HashMap<>();
+    private UUID serverUUID;
     private ServerStatusData serverStatusData = new ServerStatusData();
+    private final ServerSupportList supportList = new ServerSupportList();
+    private ChannelDataStorage channelDataStorage;
+
+    // Domain behaviour component - It defines how the session reacts to protocol input
+    private CommandHandlerList commandHandlerList = new CommandHandlerList();
+
+    // Coordinator/Observer infrastructure
+    private final List<ChannelListListener> channelListListeners = new ArrayList<>();
+
+    // Domain Infrastructure
+    private CapabilityManager capabilityManager = new CapabilityManager(this);
+
+    // Infrastructure
+    private ServerConnectionApi api;
     private WritableUserInfoApi userInfoApi;
     private MessageStorageRepository messageStorageRepository;
-    private ChannelDataStorage channelDataStorage;
     private NickPrefixParser nickPrefixParser = OneCharNickPrefixParser.getInstance();
-    private final ServerSupportList supportList = new ServerSupportList();
     private final MessageFilterList messageFilterList = new MessageFilterList();
-    private CommandHandlerList commandHandlerList = new CommandHandlerList();
-    private CapabilityManager capabilityManager = new CapabilityManager(this);
-    private final List<ChannelListListener> channelListListeners = new ArrayList<>();
-    private UUID serverUUID;
     private MessageSink messageSink;
     private MessageBus messageBus;
     private MessageId.Parser messageIdParser;
