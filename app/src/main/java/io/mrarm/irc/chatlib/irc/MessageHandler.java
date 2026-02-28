@@ -1,5 +1,7 @@
 package io.mrarm.irc.chatlib.irc;
 
+import android.util.Log;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -50,6 +52,8 @@ public class MessageHandler {
         String command = line.substring(prefixEndI + 1, commandEndI);
         String paramsRaw = line.substring(commandEndI + 1);
         List<String> params = parseParams(paramsRaw);
+        Log.d("[MESSAGE HANDLER]", "handleLine() " + command);
+
         commandHandlerList.getHandlerFor(command).handle(connection, prefix, command, params, tags);
     }
 

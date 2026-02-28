@@ -64,7 +64,7 @@ import io.mrarm.irc.util.WarningHelper;
 import io.mrarm.irc.view.ChipsEditText;
 import io.mrarm.irc.view.LockableDrawerLayout;
 
-// TODO(architecture):
+// TODO(architecture): mostly done
 // MainActivity currently acts as a central UI orchestrator:
 // - navigation & fragment switching
 // - drawer / toolbar state

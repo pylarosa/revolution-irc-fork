@@ -195,9 +195,10 @@ public class IRCApplication extends Application implements Application.ActivityL
     public boolean requestExit() {
         Log.i("[FLOW]", ">>> Application exit requested, IRCApplication.requestExit() called");
         for (PreExitCallback exitCallback : mPreExitCallbacks) {
-            if (!exitCallback.onAppPreExit())
+            if (!exitCallback.onAppPreExit()) {
                 exitCallback.logPreExitCallbak();
-            return false;
+                return false;
+            }
         }
         for (ExitCallback exitCallback : mExitCallbacks){
             exitCallback.logExitCallbak();

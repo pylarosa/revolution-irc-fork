@@ -38,16 +38,16 @@ public class IRCConnection extends ServerConnectionApi {
     private static final String[] AUTH_COMMAND_PREFIXES = new String[]{"PASS ", "OPER", "PRIVMSG NickServ :IDENTIFY ",
             "NICKSERV IDENTIFY "};
 
-    private Charset charset;
-    private Socket socket;
-    private InputStream socketInputStream;
-    private OutputStream socketOutputStream;
-    private MessageHandler inputHandler;
-    private ResponseCallback<Void> connectCallback;
-    private ResponseErrorCallback connectErrorCallback;
-    private final List<DisconnectListener> disconnectListeners = new ArrayList<>();
+    private Charset charset; // Connection configuration state
+    private Socket socket; // Transport state - It does indicate connection lifecycle. weather the ir a TCP connection open or not.
+    private InputStream socketInputStream; // Transport mechanic - moves bytes
+    private OutputStream socketOutputStream; // Transport mechanic - moves bytes
+    private MessageHandler inputHandler; // a Processor - Not state
+    private ResponseCallback<Void> connectCallback; // Transient coordinator state
+    private ResponseErrorCallback connectErrorCallback; // Transient coordinator state
+    private final List<DisconnectListener> disconnectListeners = new ArrayList<>(); // observer infrastructure
 
-    private SimpleRequestExecutor executor = new SimpleRequestExecutor();
+    private SimpleRequestExecutor executor = new SimpleRequestExecutor(); // Threading infrastructure
 
     public IRCConnection() {
         super(new ServerConnectionData());

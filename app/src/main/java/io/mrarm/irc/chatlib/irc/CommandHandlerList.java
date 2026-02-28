@@ -1,5 +1,7 @@
 package io.mrarm.irc.chatlib.irc;
 
+import android.util.Log;
+
 import java.util.HashMap;
 
 import io.mrarm.irc.chatlib.irc.handlers.AwayCommandHandler;
@@ -58,6 +60,7 @@ public class CommandHandlerList {
 
     public CommandHandler getHandlerFor(String command) throws InvalidMessageException {
         if (!handlers.containsKey(command)) {
+            Log.d("[COMMAND HANDLER LIST]", "getHandlerFor() " + command);
             if (errorCommandHandler.canHandle(command))
                 return errorCommandHandler;
             throw new InvalidMessageException("No such command found (" + command + ")");
