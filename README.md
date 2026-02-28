@@ -1,22 +1,23 @@
-Revolution IRC
-==============
- 
-Revolution IRC Client is the next-generation IRC client for Android, made with design and functionality in mind. Let's start this revolution!
+# Revolution IRC – A Modern Fork
 
-<a href="https://f-droid.org/packages/io.mrarm.irc/" target="_blank">
-<img src="https://f-droid.org/badge/get-it-on.png" alt="Get it on F-Droid" height="80"/></a>
-<a href="https://play.google.com/store/apps/details?id=io.mrarm.irc" target="_blank">
-<img src="https://play.google.com/intl/en_us/badges/images/generic/en-play-badge.png" alt="Get it on Google Play" height="80"/></a>
+This is a fork of [Revolution IRC Client](https://github.com/MCMrARM/revolution-irc) by [MCMrARM](https://github.com/MCMrARM), with the goal of modernizing the codebase and deepening my understanding of real-world software development.
 
-This client features a modern Material design as well as many other awesome features:
+## About This Project
 
-* Stays in background properly, even on more recent Android versions
-* Store chat messages to be displayed after reconnecting to the server later
-* Nick/channel/command autocomplete
-* Ignore list
-* mIRC color formatting support
-* SSL certificate exception list
-* Command list to run after connecting
-* Customization: custom command aliases, notification rules, reconnection interval, chat font, message format, app colors
+I'm using this fork as a learning opportunity to work with Java, Kotlin, Android development, and IRC protocol specifications. My contributions are limited by my day job, but I'm committed to gradually improving and expanding the codebase.
 
-...and much more!
+This is an active learning project—feedback, collaboration, and insights are always welcome.
+
+## Vision and Values
+
+Eventually, once the codebase has been sufficiently modernized and I've gained deeper expertise, I plan to transition this into an independent IRC client release.
+
+Privacy and security are core values for this project. As the codebase matures, I plan to implement robust privacy protections and security best practices as foundational features of the final release, within the constraints of the IRC protocol itself.
+
+## Contributing
+
+I'm open to suggestions, pull requests, and technical discussions. Whether you're also learning or have expertise to share, I'd appreciate the input.
+
+## License
+
+This project maintains (and will maintain) the same license as the original Revolution IRC Client - GNU General Public License v3 (GPLv3)
